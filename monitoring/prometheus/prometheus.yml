@@ -1,0 +1,134 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'uml-service'
+    environment: 'production'
+
+rule_files:
+  - "alerts/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # UML API Service
+  - job_name: 'uml-api-service'
+    static_configs:
+      - targets: ['api-service:9001']
+    scrape_interval: 10s
+    metrics_path: /metrics
+    scrape_timeout: 10s
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: api-service:9001
+
+  # UML UI Service
+  - job_name: 'uml-ui-service'
+    static_configs:
+      - targets: ['ui-service:9002']
+    scrape_interval: 10s
+    metrics_path: /metrics
+    scrape_timeout: 10s
+    params:
+      format: ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: ui-service:9002
+
+  # Kroki Service
+  - job_name: 'kroki-service'
+    static_configs:
+      - targets: ['kroki-service:8000']
+    scrape_interval: 30s
+    metrics_path: /health
+    scrape_timeout: 10s
+
+  # Node Exporter (System metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # cAdvisor (Container metrics)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s
+    metrics_path: /metrics
+
+  # Docker daemon metrics (if enabled)
+  - job_name: 'docker-daemon'
+    static_configs:
+      - targets: ['host.docker.internal:9323']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Alertmanager
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Blackbox exporter for endpoint monitoring
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://api-service:9001/health
+          - http://ui-service:9002/health
+          - http://kroki-service:8000/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Custom application metrics
+  - job_name: 'uml-custom-metrics'
+    static_configs:
+      - targets: ['api-service:9001']
+    scrape_interval: 10s
+    metrics_path: /api/v1/metrics
+    honor_labels: true
+    params:
+      format: ['prometheus']
+
+# Remote write configuration (for external monitoring services)
+# remote_write:
+#   - url: "https://your-monitoring-service.com/api/v1/write"
+#     basic_auth:
+#       username: "your-username"
+#       password: "your-password"
+
+# Storage configuration
+storage:
+  tsdb:
+    retention.time: 30d
+    retention.size: 10GB

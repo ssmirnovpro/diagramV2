@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # Kroki Service - PlantUML rendering engine
+  kroki-service:
+    image: yuzutech/kroki:latest
+    container_name: uml-kroki-service
+    ports:
+      - "8001:8000"
+    environment:
+      - KROKI_SAFE_MODE=secure
+      - KROKI_MAX_URI_LENGTH=4000
+      - KROKI_PLANTUML_INCLUDE_PATH=""
+      - KROKI_BLOCK_LOCAL_FILE_ACCESS=true
+    networks:
+      - uml-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # API Service - REST API for diagram generation
+  api-service:
+    build:
+      context: ./api-service
+      dockerfile: Dockerfile
+    container_name: uml-api-service
+    ports:
+      - "9001:9001"
+    environment:
+      - NODE_ENV=development
+      - PORT=9001
+      - KROKI_URL=http://kroki-service:8000
+    depends_on:
+      - kroki-service
+    networks:
+      - uml-network
+    volumes:
+      # Enable live reloading in development
+      - ./api-service:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # UI Service - Web interface
+  ui-service:
+    build:
+      context: ./ui-service
+      dockerfile: Dockerfile
+    container_name: uml-ui-service
+    ports:
+      - "9002:9002"
+    environment:
+      - NODE_ENV=development
+      - PORT=9002
+      - API_URL=http://api-service:9001
+    depends_on:
+      - api-service
+    networks:
+      - uml-network
+    volumes:
+      # Enable live reloading in development
+      - ./ui-service:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+networks:
+  uml-network:
+    driver: bridge
+    name: uml-images-network
+
+# Development-specific overrides
+# Use: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+# For production, create docker-compose.prod.yml with different settings

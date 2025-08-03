@@ -1,0 +1,27 @@
+{
+  "name": "uml-images-service",
+  "version": "1.0.0",
+  "description": "UML Images Service - веб-сервис для генерации диаграмм из PlantUML кода",
+  "main": "index.js",
+  "scripts": {
+    "start": "docker-compose up",
+    "dev": "docker-compose up --build",
+    "stop": "docker-compose down",
+    "clean": "docker-compose down -v --rmi all",
+    "logs": "docker-compose logs -f"
+  },
+  "keywords": [
+    "uml",
+    "plantuml",
+    "diagrams",
+    "microservices",
+    "docker"
+  ],
+  "author": "UML Images Service",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "docker": ">=20.0.0",
+    "docker-compose": ">=2.0.0"
+  }
+}

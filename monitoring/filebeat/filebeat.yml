@@ -1,0 +1,115 @@
+filebeat.inputs:
+  # UML API Service logs
+  - type: container
+    paths:
+      - '/var/lib/docker/containers/*/*.log'
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+    fields:
+      logstash_index: uml-api
+      service: uml-api-service
+    fields_under_root: true
+    include_lines: ['^.*uml-api-service.*$']
+
+  # UML UI Service logs
+  - type: container
+    paths:
+      - '/var/lib/docker/containers/*/*.log'
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+    fields:
+      logstash_index: uml-ui
+      service: uml-ui-service
+    fields_under_root: true
+    include_lines: ['^.*uml-ui-service.*$']
+
+  # Kroki Service logs
+  - type: container
+    paths:
+      - '/var/lib/docker/containers/*/*.log'
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+    fields:
+      logstash_index: kroki
+      service: kroki-service
+    fields_under_root: true
+    include_lines: ['^.*kroki-service.*$']
+
+  # Application-specific log files
+  - type: log
+    paths:
+      - '/var/log/api/*.log'
+    fields:
+      logstash_index: uml-api
+      service: uml-api-service
+      log_type: application
+    fields_under_root: true
+    multiline.pattern: '^\d{4}-\d{2}-\d{2}'
+    multiline.negate: true
+    multiline.match: after
+
+  - type: log
+    paths:
+      - '/var/log/ui/*.log'
+    fields:
+      logstash_index: uml-ui
+      service: uml-ui-service
+      log_type: application
+    fields_under_root: true
+    multiline.pattern: '^\d{4}-\d{2}-\d{2}'
+    multiline.negate: true
+    multiline.match: after
+
+# Global processors
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_docker_metadata: ~
+  - add_kubernetes_metadata: ~
+  - drop_fields:
+      fields: ["beat", "input", "source", "offset"]
+  - rename:
+      fields:
+        - from: "message"
+          to: "log_message"
+
+# Output configuration
+output.logstash:
+  hosts: ["logstash:5044"]
+  index: "uml-service"
+  template.settings:
+    index.number_of_shards: 1
+    index.number_of_replicas: 0
+
+# Alternative: Output directly to Elasticsearch
+# output.elasticsearch:
+#   hosts: ["elasticsearch:9200"]
+#   index: "uml-service-%{+yyyy.MM.dd}"
+#   template.settings:
+#     index.number_of_shards: 1
+#     index.number_of_replicas: 0
+
+# Logging configuration
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644
+
+# Monitoring
+monitoring.enabled: true
+monitoring.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  index: "filebeat-monitoring"
+
+# HTTP endpoint for monitoring
+http.enabled: true
+http.port: 5066
+
+# Security settings
+ssl.verification_mode: none

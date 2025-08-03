@@ -1,0 +1,176 @@
+groups:
+  - name: uml-service.rules
+    rules:
+      # Service availability alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 1 minute."
+          runbook_url: "https://your-runbook.com/service-down"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second for service {{ $labels.job }}"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "High latency detected"
+          description: "95th percentile latency is {{ $value }}s for service {{ $labels.job }}"
+
+      # Resource utilization alerts
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: "{{ $labels.name }}"
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% for container {{ $labels.name }}"
+
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: "{{ $labels.name }}"
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}% for container {{ $labels.name }}"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space is {{ $value }}% full on {{ $labels.device }}"
+
+      # UML-specific alerts
+      - alert: DiagramGenerationFailures
+        expr: rate(uml_diagram_generation_errors_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+          service: "api-service"
+        annotations:
+          summary: "High diagram generation failure rate"
+          description: "Diagram generation failure rate is {{ $value }} failures per second"
+
+      - alert: KrokiServiceUnreachable
+        expr: up{job="kroki-service"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: "kroki-service"
+        annotations:
+          summary: "Kroki service is unreachable"
+          description: "The Kroki service has been unreachable for more than 2 minutes"
+
+      - alert: HighRequestQueueSize
+        expr: uml_request_queue_size > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: "api-service"
+        annotations:
+          summary: "High request queue size"
+          description: "Request queue size is {{ $value }} requests"
+
+      # Security alerts
+      - alert: TooManyAuthFailures
+        expr: rate(uml_auth_failures_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: "api-service"
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Authentication failure rate is {{ $value }} failures per second"
+
+      - alert: SuspiciousActivity
+        expr: rate(uml_suspicious_requests_total[5m]) > 0.01
+        for: 1m
+        labels:
+          severity: critical
+          service: "api-service"
+        annotations:
+          summary: "Suspicious activity detected"
+          description: "Suspicious request rate is {{ $value }} requests per second"
+
+      # Application-specific metrics
+      - alert: LongRunningRequests
+        expr: uml_request_duration_seconds{quantile="0.95"} > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: "api-service"
+        annotations:
+          summary: "Long running requests detected"
+          description: "95th percentile request duration is {{ $value }} seconds"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: uml_db_connection_pool_active >= uml_db_connection_pool_max * 0.9
+        for: 2m
+        labels:
+          severity: critical
+          service: "api-service"
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "Active connections: {{ $value }}, Max: {{ $labels.max }}"
+
+  - name: system.rules
+    rules:
+      # System-level alerts
+      - alert: NodeDown
+        expr: up{job="node-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node is down"
+          description: "Node {{ $labels.instance }} has been down for more than 1 minute"
+
+      - alert: HighSystemLoad
+        expr: node_load15 > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High system load"
+          description: "15-minute load average is {{ $value }}"
+
+      - alert: OutOfFileDescriptors
+        expr: node_filefd_allocated / node_filefd_maximum > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Running out of file descriptors"
+          description: "File descriptor usage is {{ $value }}%"
+
+      - alert: NetworkInterfaceDown
+        expr: node_network_up == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Network interface is down"
+          description: "Network interface {{ $labels.device }} is down"

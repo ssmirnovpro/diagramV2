@@ -1,0 +1,198 @@
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@uml-service.com'
+  smtp_auth_username: 'alerts@uml-service.com'
+  smtp_auth_password: 'your-smtp-password'
+  smtp_require_tls: true
+
+  # Slack webhook URL
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+
+  # Default values
+  resolve_timeout: 5m
+
+# Email and webhook templates
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Routing configuration
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'web.hook'
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 10s
+      repeat_interval: 5m
+      routes:
+        - match:
+            alertname: ServiceDown
+          receiver: 'service-down'
+        - match:
+            alertname: SuspiciousActivity
+          receiver: 'security-alerts'
+
+    # Warning alerts - regular notification
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 30s
+      repeat_interval: 30m
+
+    # Development environment - reduce noise
+    - match:
+        environment: development
+      receiver: 'dev-alerts'
+      group_wait: 1m
+      repeat_interval: 4h
+
+# Alert receivers
+receivers:
+  - name: 'web.hook'
+    webhook_configs:
+      - url: 'http://127.0.0.1:5001/'
+        send_resolved: true
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'devops@company.com'
+        subject: '🚨 CRITICAL: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Service: {{ .Labels.service }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+        headers:
+          Subject: '🚨 CRITICAL Alert from UML Service'
+    
+    slack_configs:
+      - channel: '#alerts-critical'
+        title: '🚨 Critical Alert'
+        text: |
+          {{ range .Alerts }}
+          *{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          Service: {{ .Labels.service }}
+          {{ end }}
+        color: 'danger'
+        send_resolved: true
+
+  - name: 'service-down'
+    email_configs:
+      - to: 'devops@company.com,sre@company.com'
+        subject: '🔥 SERVICE DOWN: {{ range .Alerts }}{{ .Labels.service }}{{ end }}'
+        body: |
+          URGENT: Service is completely down!
+          
+          {{ range .Alerts }}
+          Service: {{ .Labels.service }}
+          Alert: {{ .Annotations.summary }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          
+          Immediate action required!
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+    
+    slack_configs:
+      - channel: '#alerts-critical'
+        title: '🔥 SERVICE DOWN'
+        text: |
+          {{ range .Alerts }}
+          *URGENT: {{ .Labels.service }} is DOWN!*
+          {{ .Annotations.description }}
+          Started: {{ .StartsAt.Format "15:04:05" }}
+          {{ end }}
+        color: 'danger'
+    
+    webhook_configs:
+      - url: 'https://your-pagerduty-webhook.com'
+        send_resolved: true
+
+  - name: 'security-alerts'
+    email_configs:
+      - to: 'security@company.com,devops@company.com'
+        subject: '🛡️ SECURITY ALERT: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        body: |
+          SECURITY INCIDENT DETECTED!
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Service: {{ .Labels.service }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          
+          Investigate immediately!
+          {{ end }}
+    
+    slack_configs:
+      - channel: '#security-alerts'
+        title: '🛡️ Security Alert'
+        text: |
+          {{ range .Alerts }}
+          *SECURITY: {{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          Service: {{ .Labels.service }}
+          {{ end }}
+        color: 'warning'
+
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'devops@company.com'
+        subject: '⚠️ Warning: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Service: {{ .Labels.service }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+    
+    slack_configs:
+      - channel: '#alerts-warning'
+        title: '⚠️ Warning Alert'
+        text: |
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          Service: {{ .Labels.service }}
+          {{ end }}
+        color: 'warning'
+        send_resolved: true
+
+  - name: 'dev-alerts'
+    slack_configs:
+      - channel: '#dev-alerts'
+        title: '🔧 Dev Alert'
+        text: |
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          Environment: Development
+          {{ end }}
+        color: 'good'
+        send_resolved: true
+
+# Inhibition rules
+inhibit_rules:
+  # Inhibit warning alerts if critical alert for same service is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['service', 'alertname']
+
+  # Inhibit individual service alerts if entire node is down
+  - source_match:
+      alertname: 'NodeDown'
+    target_match_re:
+      service: '.*'
+    equal: ['instance']

@@ -1,0 +1,482 @@
+version: '3.8'
+
+# Infrastructure Services for UML Images Service
+# Complete infrastructure stack including monitoring, logging, and management tools
+
+services:
+  # Traefik - Reverse Proxy and Load Balancer
+  traefik:
+    image: traefik:v3.0
+    container_name: uml-traefik
+    command:
+      - --api.dashboard=true
+      - --api.debug=true
+      - --log.level=INFO
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@example.com}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --metrics.prometheus=true
+      - --metrics.prometheus.addentrypointslabels=true
+      - --metrics.prometheus.addserviceslabels=true
+      - --accesslog=true
+      - --accesslog.filepath=/var/log/traefik/access.log
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-letsencrypt:/letsencrypt
+      - traefik-logs:/var/log/traefik
+    networks:
+      - uml-network
+      - traefik-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN:-localhost}`)
+      - traefik.http.routers.traefik.entrypoints=websecure
+      - traefik.http.routers.traefik.tls.certresolver=letsencrypt
+      - traefik.http.routers.traefik.service=api@internal
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+
+  # Consul - Service Discovery
+  consul:
+    image: consul:1.16.1
+    container_name: uml-consul
+    command: agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+      - CONSUL_CLIENT_INTERFACE=eth0
+    ports:
+      - "8500:8500"
+      - "8600:8600/udp"
+    volumes:
+      - consul-data:/consul/data
+      - consul-config:/consul/config
+    networks:
+      - uml-network
+      - consul-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.consul.rule=Host(`consul.${DOMAIN:-localhost}`)
+      - traefik.http.routers.consul.entrypoints=websecure
+      - traefik.http.routers.consul.tls.certresolver=letsencrypt
+      - traefik.http.services.consul.loadbalancer.server.port=8500
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Vault - Secrets Management
+  vault:
+    image: vault:1.15.2
+    container_name: uml-vault
+    cap_add:
+      - IPC_LOCK
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=${VAULT_ROOT_TOKEN:-root}
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+      - VAULT_ADDR=http://0.0.0.0:8200
+    ports:
+      - "8200:8200"
+    volumes:
+      - vault-data:/vault/data
+      - vault-config:/vault/config
+      - vault-logs:/vault/logs
+    networks:
+      - uml-network
+      - vault-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.vault.rule=Host(`vault.${DOMAIN:-localhost}`)
+      - traefik.http.routers.vault.entrypoints=websecure
+      - traefik.http.routers.vault.tls.certresolver=letsencrypt
+      - traefik.http.services.vault.loadbalancer.server.port=8200
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # MinIO - Object Storage
+  minio:
+    image: minio/minio:RELEASE.2023-11-20T22-40-07Z
+    container_name: uml-minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin123}
+      - MINIO_BROWSER_REDIRECT_URL=https://minio.${DOMAIN:-localhost}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - uml-network
+      - minio-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.minio-api.rule=Host(`minio-api.${DOMAIN:-localhost}`)
+      - traefik.http.routers.minio-api.entrypoints=websecure
+      - traefik.http.routers.minio-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.minio-api.service=minio-api
+      - traefik.http.services.minio-api.loadbalancer.server.port=9000
+      - traefik.http.routers.minio-console.rule=Host(`minio.${DOMAIN:-localhost}`)
+      - traefik.http.routers.minio-console.entrypoints=websecure
+      - traefik.http.routers.minio-console.tls.certresolver=letsencrypt
+      - traefik.http.routers.minio-console.service=minio-console
+      - traefik.http.services.minio-console.loadbalancer.server.port=9001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # Redis - Caching and Session Storage
+  redis:
+    image: redis:7.2-alpine
+    container_name: uml-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./infrastructure/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - uml-network
+      - redis-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Redis Commander - Redis GUI
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: uml-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD:-redis123}
+      - HTTP_USER=${REDIS_COMMANDER_USER:-admin}
+      - HTTP_PASSWORD=${REDIS_COMMANDER_PASSWORD:-admin123}
+    ports:
+      - "8081:8081"
+    networks:
+      - redis-network
+      - uml-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.redis-commander.rule=Host(`redis.${DOMAIN:-localhost}`)
+      - traefik.http.routers.redis-commander.entrypoints=websecure
+      - traefik.http.routers.redis-commander.tls.certresolver=letsencrypt
+      - traefik.http.services.redis-commander.loadbalancer.server.port=8081
+    depends_on:
+      - redis
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # Portainer - Container Management
+  portainer:
+    image: portainer/portainer-ce:2.19.4
+    container_name: uml-portainer
+    command: -H unix:///var/run/docker.sock
+    ports:
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    networks:
+      - uml-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN:-localhost}`)
+      - traefik.http.routers.portainer.entrypoints=websecure
+      - traefik.http.routers.portainer.tls.certresolver=letsencrypt
+      - traefik.http.services.portainer.loadbalancer.server.port=9000
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Watchtower - Automated Container Updates
+  watchtower:
+    image: containrrr/watchtower:1.7.1
+    container_name: uml-watchtower
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_REMOVE_VOLUMES=true
+      - WATCHTOWER_INCLUDE_STOPPED=true
+      - WATCHTOWER_POLL_INTERVAL=86400  # 24 hours
+      - WATCHTOWER_NOTIFICATIONS=slack
+      - WATCHTOWER_NOTIFICATION_SLACK_HOOK_URL=${SLACK_WEBHOOK_URL}
+      - WATCHTOWER_NOTIFICATION_SLACK_IDENTIFIER=watchtower-uml-service
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - uml-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # Loki - Log Aggregation
+  loki:
+    image: grafana/loki:2.9.2
+    container_name: uml-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki-data:/loki
+      - ./infrastructure/loki/loki.yml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - uml-network
+      - monitoring-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.loki.rule=Host(`loki.${DOMAIN:-localhost}`)
+      - traefik.http.routers.loki.entrypoints=websecure
+      - traefik.http.routers.loki.tls.certresolver=letsencrypt
+      - traefik.http.services.loki.loadbalancer.server.port=3100
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # Promtail - Log Shipping
+  promtail:
+    image: grafana/promtail:2.9.2
+    container_name: uml-promtail
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./infrastructure/promtail/promtail.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - monitoring-network
+    depends_on:
+      - loki
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.89.0
+    container_name: uml-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./infrastructure/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "8888:8888"   # Prometheus metrics
+      - "8889:8889"   # Prometheus exporter metrics
+    networks:
+      - uml-network
+      - monitoring-network
+    depends_on:
+      - jaeger
+      - prometheus
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Tempo - Distributed Tracing
+  tempo:
+    image: grafana/tempo:2.3.1
+    container_name: uml-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./infrastructure/tempo/tempo.yaml:/etc/tempo.yaml
+      - tempo-data:/tmp/tempo
+    ports:
+      - "3200:3200"   # tempo
+      - "14268:14268" # jaeger ingest
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # Nginx - Static File Server and Proxy
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: uml-nginx
+    ports:
+      - "8090:80"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./infrastructure/nginx/conf.d:/etc/nginx/conf.d
+      - nginx-cache:/var/cache/nginx
+      - nginx-logs:/var/log/nginx
+    networks:
+      - uml-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nginx.rule=Host(`static.${DOMAIN:-localhost}`)
+      - traefik.http.routers.nginx.entrypoints=websecure
+      - traefik.http.routers.nginx.tls.certresolver=letsencrypt
+      - traefik.http.services.nginx.loadbalancer.server.port=80
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # Blackbox Exporter - External Monitoring
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.24.0
+    container_name: uml-blackbox-exporter
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./infrastructure/blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+volumes:
+  traefik-letsencrypt:
+    driver: local
+  traefik-logs:
+    driver: local
+  consul-data:
+    driver: local
+  consul-config:
+    driver: local
+  vault-data:
+    driver: local
+  vault-config:
+    driver: local
+  vault-logs:
+    driver: local
+  minio-data:
+    driver: local
+  redis-data:
+    driver: local
+  portainer-data:
+    driver: local
+  loki-data:
+    driver: local
+  tempo-data:
+    driver: local
+  nginx-cache:
+    driver: local
+  nginx-logs:
+    driver: local
+
+networks:
+  uml-network:
+    external: true
+  monitoring-network:
+    external: true
+  traefik-network:
+    driver: bridge
+    name: uml-traefik-network
+  consul-network:
+    driver: bridge
+    name: uml-consul-network
+  vault-network:
+    driver: bridge
+    name: uml-vault-network
+  minio-network:
+    driver: bridge
+    name: uml-minio-network
+  redis-network:
+    driver: bridge
+    name: uml-redis-network

@@ -1,0 +1,381 @@
+name: Continuous Deployment
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      force_deploy:
+        description: 'Force deployment (skip safety checks)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Pre-deployment validation
+  pre-deploy-validation:
+    name: Pre-deployment Validation
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.determine-env.outputs.environment }}
+      deploy-approved: ${{ steps.safety-check.outputs.approved }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine deployment environment
+        id: determine-env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/tags/v"* ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Safety check for production
+        id: safety-check
+        run: |
+          ENVIRONMENT="${{ steps.determine-env.outputs.environment }}"
+          FORCE_DEPLOY="${{ github.event.inputs.force_deploy }}"
+          
+          if [[ "$ENVIRONMENT" == "production" && "$FORCE_DEPLOY" != "true" ]]; then
+            # Check if this is a tagged release
+            if [[ "${{ github.ref }}" != "refs/tags/v"* ]]; then
+              echo "::error::Production deployment requires a version tag (v*)"
+              echo "approved=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+            
+            # Check if CI passed on main branch
+            MAIN_STATUS=$(gh api repos/${{ github.repository }}/commits/main/status --jq '.state')
+            if [[ "$MAIN_STATUS" != "success" ]]; then
+              echo "::error::CI must pass on main branch before production deployment"
+              echo "approved=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          fi
+          
+          echo "approved=true" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate Docker images exist
+        run: |
+          ENVIRONMENT="${{ steps.determine-env.outputs.environment }}"
+          
+          # Check if images were built and pushed
+          if ! docker manifest inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-service:${{ github.sha }} > /dev/null 2>&1; then
+            echo "::error::API Service Docker image not found for commit ${{ github.sha }}"
+            exit 1
+          fi
+          
+          if ! docker manifest inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/ui-service:${{ github.sha }} > /dev/null 2>&1; then
+            echo "::error::UI Service Docker image not found for commit ${{ github.sha }}"
+            exit 1
+          fi
+          
+          echo "✅ Docker images validated"
+
+  # Staging deployment
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: pre-deploy-validation
+    if: needs.pre-deploy-validation.outputs.deploy-approved == 'true' && (needs.pre-deploy-validation.outputs.environment == 'staging' || github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: https://staging-uml.example.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup deployment tools
+        run: |
+          # Install kubectl, helm, or other deployment tools
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: Configure staging environment
+        run: |
+          echo "ENVIRONMENT=staging" >> $GITHUB_ENV
+          echo "API_REPLICAS=2" >> $GITHUB_ENV
+          echo "UI_REPLICAS=2" >> $GITHUB_ENV
+          echo "RESOURCE_LIMITS_CPU=500m" >> $GITHUB_ENV
+          echo "RESOURCE_LIMITS_MEMORY=512Mi" >> $GITHUB_ENV
+
+      - name: Deploy to staging
+        run: |
+          # Update docker-compose for staging
+          export IMAGE_TAG=${{ github.sha }}
+          export ENVIRONMENT=staging
+          
+          # Deploy using docker-compose or Kubernetes
+          docker-compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+          
+          # Wait for deployment to be ready
+          sleep 30
+          
+          # Health check
+          timeout 120 bash -c 'until curl -f https://staging-api-uml.example.com/health; do sleep 5; done'
+          timeout 120 bash -c 'until curl -f https://staging-uml.example.com/health; do sleep 5; done'
+
+      - name: Run smoke tests
+        run: |
+          # Run basic smoke tests
+          ./scripts/health-check.sh --url https://staging-uml.example.com
+          
+          # Test diagram generation
+          curl -X POST https://staging-api-uml.example.com/api/v1/generate \
+            -H "Content-Type: application/json" \
+            -d '{"uml":"@startuml\nAlice -> Bob: Hello\n@enduml"}' \
+            --fail
+
+      - name: Deploy monitoring stack
+        run: |
+          # Deploy monitoring for staging
+          docker-compose -f docker-compose.monitoring.yml up -d
+          
+          # Configure alerts for staging
+          curl -X POST http://staging-alertmanager.example.com/-/reload
+
+      - name: Notify staging deployment
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-type: application/json' \
+            --data '{
+              "text": "🚀 Staging Deployment Complete",
+              "attachments": [{
+                "color": "good",
+                "fields": [
+                  {"title": "Environment", "value": "staging", "short": true},
+                  {"title": "Version", "value": "${{ github.sha }}", "short": true},
+                  {"title": "Deployed by", "value": "${{ github.actor }}", "short": true},
+                  {"title": "URL", "value": "https://staging-uml.example.com", "short": true}
+                ]
+              }]
+            }'
+
+  # Production deployment
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [pre-deploy-validation, deploy-staging]
+    if: |
+      always() && 
+      needs.pre-deploy-validation.outputs.deploy-approved == 'true' && 
+      (needs.pre-deploy-validation.outputs.environment == 'production' || github.event.inputs.environment == 'production') &&
+      (needs.deploy-staging.result == 'success' || github.event.inputs.environment == 'production')
+    environment:
+      name: production
+      url: https://uml.example.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Production deployment approval
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.force_deploy != 'true'
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: devops-team,tech-leads
+          minimum-approvals: 2
+          issue-title: "Production Deployment Approval Required"
+          issue-body: |
+            **Production Deployment Request**
+            
+            - **Version**: ${{ github.sha }}
+            - **Triggered by**: ${{ github.actor }}
+            - **Changes**: [View diff](https://github.com/${{ github.repository }}/compare/production...${{ github.sha }})
+            
+            Please review and approve this production deployment.
+
+      - name: Configure production environment
+        run: |
+          echo "ENVIRONMENT=production" >> $GITHUB_ENV
+          echo "API_REPLICAS=3" >> $GITHUB_ENV
+          echo "UI_REPLICAS=3" >> $GITHUB_ENV
+          echo "RESOURCE_LIMITS_CPU=1000m" >> $GITHUB_ENV
+          echo "RESOURCE_LIMITS_MEMORY=1Gi" >> $GITHUB_ENV
+
+      - name: Create database backup
+        run: |
+          # Backup production database before deployment
+          echo "Creating database backup..."
+          # Add actual backup commands here
+
+      - name: Blue-Green deployment preparation
+        run: |
+          # Prepare blue-green deployment
+          export IMAGE_TAG=${{ github.sha }}
+          export ENVIRONMENT=production
+          export DEPLOYMENT_SLOT=green
+          
+          # Deploy to green slot
+          docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+      - name: Production health checks
+        run: |
+          # Wait for green deployment to be ready
+          sleep 60
+          
+          # Comprehensive health checks
+          ./scripts/health-check.sh --comprehensive --url https://green-uml.example.com
+          
+          # Load testing on green environment
+          k6 run tests/performance/production-readiness.js \
+            --env API_URL=https://green-api-uml.example.com \
+            --env UI_URL=https://green-uml.example.com
+
+      - name: Switch traffic to green
+        run: |
+          # Switch load balancer to green deployment
+          echo "Switching traffic to green deployment..."
+          # Add load balancer switching logic here
+
+      - name: Verify production deployment
+        run: |
+          # Final verification
+          sleep 30
+          ./scripts/health-check.sh --url https://uml.example.com
+          
+          # Check metrics and alerts
+          curl -f https://prometheus.example.com/api/v1/query?query=up{job=\"uml-api-service\"}
+
+      - name: Cleanup old deployment
+        run: |
+          # Cleanup blue deployment after successful switch
+          echo "Cleaning up old deployment..."
+          # Add cleanup logic here
+
+      - name: Update production monitoring
+        run: |
+          # Update monitoring dashboards and alerts for production
+          curl -X POST https://grafana.example.com/api/dashboards/db \
+            -H "Authorization: Bearer ${{ secrets.GRAFANA_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d @monitoring/grafana/dashboards/production-dashboard.json
+
+      - name: Tag successful production deployment
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          TIMESTAMP=$(date -u +"%Y%m%d-%H%M%S")
+          TAG_NAME="production-${TIMESTAMP}-${{ github.sha }}"
+          
+          git tag -a "$TAG_NAME" -m "Production deployment: ${{ github.sha }}"
+          git push origin "$TAG_NAME"
+
+      - name: Notify production deployment
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-type: application/json' \
+            --data '{
+              "text": "🎉 Production Deployment Complete",
+              "attachments": [{
+                "color": "good",
+                "fields": [
+                  {"title": "Environment", "value": "production", "short": true},
+                  {"title": "Version", "value": "${{ github.sha }}", "short": true},
+                  {"title": "Deployed by", "value": "${{ github.actor }}", "short": true},
+                  {"title": "URL", "value": "https://uml.example.com", "short": true}
+                ]
+              }]
+            }'
+
+  # Rollback job
+  rollback:
+    name: Emergency Rollback
+    runs-on: ubuntu-latest
+    if: failure() && github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get previous successful deployment
+        id: get-previous
+        run: |
+          # Get the last successful production tag
+          LAST_PRODUCTION_TAG=$(git tag -l "production-*" | sort -V | tail -n 2 | head -n 1)
+          echo "previous-tag=$LAST_PRODUCTION_TAG" >> $GITHUB_OUTPUT
+
+      - name: Rollback to previous version
+        run: |
+          PREVIOUS_TAG="${{ steps.get-previous.outputs.previous-tag }}"
+          
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            echo "Rolling back to $PREVIOUS_TAG"
+            
+            # Switch load balancer back to blue deployment
+            # Add rollback logic here
+            
+            # Verify rollback
+            ./scripts/health-check.sh --url https://uml.example.com
+          else
+            echo "::error::No previous production deployment found"
+            exit 1
+          fi
+
+      - name: Notify rollback
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+            -H 'Content-type: application/json' \
+            --data '{
+              "text": "🚨 Emergency Rollback Executed",
+              "attachments": [{
+                "color": "danger",
+                "fields": [
+                  {"title": "Environment", "value": "production", "short": true},
+                  {"title": "Rolled back to", "value": "${{ steps.get-previous.outputs.previous-tag }}", "short": true},
+                  {"title": "Triggered by", "value": "${{ github.actor }}", "short": true}
+                ]
+              }]
+            }'
+
+  # Post-deployment monitoring
+  post-deploy-monitoring:
+    name: Post-deployment Monitoring
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always() && (needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success')
+    steps:
+      - name: Setup monitoring alerts
+        run: |
+          # Enable enhanced monitoring for 24 hours after deployment
+          echo "Setting up post-deployment monitoring..."
+
+      - name: Schedule automated health checks
+        run: |
+          # Schedule automated health checks every 5 minutes for next 2 hours
+          echo "Scheduling automated health checks..."
+
+      - name: Monitor deployment metrics
+        run: |
+          # Monitor key metrics for signs of issues
+          sleep 300  # Wait 5 minutes
+          
+          # Check error rates
+          ERROR_RATE=$(curl -s "https://prometheus.example.com/api/v1/query?query=rate(http_requests_total{status=~\"5..\"}[5m])" | jq -r '.data.result[0].value[1]')
+          
+          if (( $(echo "$ERROR_RATE > 0.01" | bc -l) )); then
+            echo "::warning::High error rate detected: $ERROR_RATE"
+          fi

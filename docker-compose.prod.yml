@@ -1,0 +1,107 @@
+version: '3.8'
+
+# Production Security Overrides
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+  # Enhanced Kroki Security for Production
+  kroki-service:
+    environment:
+      - KROKI_SAFE_MODE=secure
+      - KROKI_MAX_URI_LENGTH=2000
+      - KROKI_PLANTUML_INCLUDE_PATH=""
+      - KROKI_BLOCK_LOCAL_FILE_ACCESS=true
+      - KROKI_DISABLE_INCLUDE=true
+      - KROKI_SECURITY_READ_ONLY_FILESYSTEM=true
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+    ulimits:
+      nproc: 100
+      nofile: 1024
+
+  # Enhanced API Service Security
+  api-service:
+    environment:
+      - NODE_ENV=production
+      - PORT=9001
+      - KROKI_URL=http://kroki-service:8000
+      - ENABLE_SECURITY_HEADERS=true
+      - ENABLE_RATE_LIMITING=true
+      - MAX_REQUEST_SIZE=1mb
+      - API_KEY_REQUIRED=true
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - api-logs:/app/logs
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+    tmpfs:
+      - /tmp:size=50M,mode=1777
+
+  # Enhanced UI Service Security  
+  ui-service:
+    environment:
+      - NODE_ENV=production
+      - PORT=9002
+      - API_URL=http://api-service:9001
+      - ENABLE_SECURITY_HEADERS=true
+      - CSP_NONCE_ENABLED=true
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - ui-logs:/app/logs
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.1'
+        reservations:
+          memory: 32M
+          cpus: '0.05'
+    tmpfs:
+      - /tmp:size=25M,mode=1777
+
+volumes:
+  api-logs:
+    driver: local
+  ui-logs:
+    driver: local
+
+networks:
+  uml-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: uml-secure-bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16

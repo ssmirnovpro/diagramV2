@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#667eea">
+    <meta name="color-scheme" content="light dark">
+    <meta name="description" content="Professional UML diagram generator with PlantUML. Create beautiful diagrams instantly with our modern, accessible interface.">
+    <meta name="keywords" content="UML, PlantUML, diagram, generator, sequence, class, activity, flowchart">
+    <meta name="author" content="UML Images Service">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="UML Images Service - Professional Diagram Generator">
+    <meta property="og:description" content="Create beautiful UML diagrams instantly with our modern, accessible interface.">
+    <meta property="og:url" content="https://uml-service.example.com">
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="UML Service">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    
+    <!-- Preload critical fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="styles.css">
+    
+    <title>UML Images Service - Professional Diagram Generator</title>
+</head>
+<body>
+    <!-- Skip to content link for screen readers -->
+    <a href="#main-content" class="skip-to-content">Skip to main content</a>
+    
+    <!-- Theme toggle -->
+    <button id="themeToggle" class="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <span id="themeIcon" aria-hidden="true">🌙</span>
+    </button>
+    
+    <div class="container">
+        <header class="header">
+            <h1 id="main-heading">
+                <span aria-hidden="true">🎯</span>
+                UML Images Service
+            </h1>
+            <p class="subtitle">Professional PlantUML diagram generation with modern interface</p>
+        </header>
+
+        <main class="main-content" id="main-content">
+            <section class="editor-section content-section" aria-labelledby="editor-heading">
+                <div class="section-header">
+                    <h2 id="editor-heading" data-icon="📝">PlantUML Code Editor</h2>
+                    <div class="toolbar" role="toolbar" aria-label="Editor tools">
+                        <button id="templateBtn" class="btn btn-outline" aria-label="Choose template">
+                            <span aria-hidden="true">📋</span>
+                            Templates
+                        </button>
+                        <div class="toolbar-divider" aria-hidden="true"></div>
+                        <button id="exampleBtn" class="btn btn-secondary" aria-label="Load example diagram">
+                            <span aria-hidden="true">💡</span>
+                            Example
+                        </button>
+                        <button id="clearBtn" class="btn btn-secondary" aria-label="Clear editor">
+                            <span aria-hidden="true">🗑️</span>
+                            Clear
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="editor-container">
+                    <label for="umlCode" class="sr-only">PlantUML code input area</label>
+                    <textarea 
+                        id="umlCode" 
+                        placeholder="Enter your PlantUML code here...&#10;&#10;Example:&#10;@startuml&#10;Alice -> Bob: Hello&#10;Bob -> Alice: Hi there&#10;@enduml"
+                        rows="15"
+                        aria-describedby="editor-help editor-stats"
+                        spellcheck="false"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                    ></textarea>
+                    <div id="editorStats" class="editor-stats" aria-live="polite">
+                        <span id="lineCount">Lines: 0</span> |
+                        <span id="charCount">Characters: 0</span>
+                    </div>
+                </div>
+                
+                <div class="action-bar">
+                    <div class="action-bar-left">
+                        <button id="generateBtn" class="btn btn-primary btn-lg" aria-describedby="generate-help">
+                            <span aria-hidden="true">🚀</span>
+                            Generate Diagram
+                        </button>
+                        <div id="generateHelp" class="sr-only">Press Ctrl+Enter or Cmd+Enter to generate</div>
+                    </div>
+                    <div class="action-bar-right">
+                        <div class="status" id="status" role="status" aria-live="polite" aria-atomic="true"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="preview-section content-section" aria-labelledby="preview-heading">
+                <div class="section-header">
+                    <h2 id="preview-heading" data-icon="🖼️">Generated Diagram</h2>
+                    <div class="toolbar" role="toolbar" aria-label="Diagram tools">
+                        <div class="btn-group">
+                            <button id="downloadPngBtn" class="btn btn-secondary" disabled aria-label="Download as PNG">
+                                <span aria-hidden="true">📥</span>
+                                PNG
+                            </button>
+                            <button id="downloadSvgBtn" class="btn btn-secondary" disabled aria-label="Download as SVG">
+                                <span aria-hidden="true">📄</span>
+                                SVG
+                            </button>
+                        </div>
+                        <div class="toolbar-divider" aria-hidden="true"></div>
+                        <button id="copyLinkBtn" class="btn btn-outline" disabled aria-label="Copy share link">
+                            <span aria-hidden="true">🔗</span>
+                            Share
+                        </button>
+                        <button id="fullscreenBtn" class="btn btn-outline" disabled aria-label="View fullscreen">
+                            <span aria-hidden="true">⛶</span>
+                            Fullscreen
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="preview-container">
+                    <div id="imageContainer" class="image-container" role="img" aria-labelledby="diagram-description">
+                        <div class="placeholder">
+                            <span class="placeholder-icon" aria-hidden="true">📊</span>
+                            <h3>Ready to Generate</h3>
+                            <p id="diagram-description">Your UML diagram will appear here</p>
+                            <p class="placeholder-hint">Enter PlantUML code and click "Generate Diagram"</p>
+                        </div>
+                        <div class="image-controls" aria-label="Image controls">
+                            <button class="image-control-btn" id="zoomInBtn" aria-label="Zoom in" disabled>
+                                <span aria-hidden="true">🔍+</span>
+                            </button>
+                            <button class="image-control-btn" id="zoomOutBtn" aria-label="Zoom out" disabled>
+                                <span aria-hidden="true">🔍-</span>
+                            </button>
+                            <button class="image-control-btn" id="resetZoomBtn" aria-label="Reset zoom" disabled>
+                                <span aria-hidden="true">↻</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer" role="contentinfo">
+            <div class="service-status" role="group" aria-label="Service status indicators">
+                <div id="apiStatus" class="status-indicator" role="status">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    <span class="status-text">API Service</span>
+                    <span class="sr-only" id="apiStatusText">Status unknown</span>
+                </div>
+                <div id="krokiStatus" class="status-indicator" role="status">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    <span class="status-text">Kroki Service</span>
+                    <span class="sr-only" id="krokiStatusText">Status unknown</span>
+                </div>
+            </div>
+            <div class="footer-info">
+                <p>UML Images Service v2.0 | Powered by PlantUML & Kroki</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Fullscreen Modal -->
+    <div id="fullscreenModal" class="fullscreen-modal" role="dialog" aria-modal="true" aria-labelledby="fullscreen-title" aria-hidden="true">
+        <div class="fullscreen-content">
+            <div class="fullscreen-controls">
+                <button id="downloadFullscreenBtn" class="fullscreen-btn" aria-label="Download diagram">
+                    <span aria-hidden="true">📥</span>
+                </button>
+                <button id="closeFullscreen" class="fullscreen-btn close-fullscreen" aria-label="Close fullscreen view">
+                    <span aria-hidden="true">✕</span>
+                </button>
+            </div>
+            <img id="fullscreenImage" alt="" role="img">
+            <h2 id="fullscreen-title" class="sr-only">Fullscreen diagram view</h2>
+        </div>
+    </div>
+    
+    <!-- Template Modal -->
+    <div id="templateModal" class="template-modal" role="dialog" aria-modal="true" aria-labelledby="template-title" aria-hidden="true">
+        <div class="template-content">
+            <div class="template-header">
+                <h2 id="template-title">Choose a Template</h2>
+                <button id="closeTemplate" class="btn btn-ghost btn-icon" aria-label="Close template chooser">
+                    <span aria-hidden="true">✕</span>
+                </button>
+            </div>
+            <div class="template-grid" id="templateGrid">
+                <!-- Templates will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="appLoading" class="app-loading" aria-hidden="true">
+        <div class="loading-spinner-lg"></div>
+        <p>Loading UML Service...</p>
+    </div>
+    
+    <!-- Toast notifications -->
+    <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+    
+    <script src="app.js"></script>
+    
+    <!-- Service Worker registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

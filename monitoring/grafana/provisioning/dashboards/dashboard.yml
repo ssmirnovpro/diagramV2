@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: 'UML Service Dashboards'
+    orgId: 1
+    folder: 'UML Service'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
