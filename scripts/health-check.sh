@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Health Check Script for UML Images Service
-# Проверяет состояние всех сервисов
+# Checks the health status of all services
 
 set -e
 
