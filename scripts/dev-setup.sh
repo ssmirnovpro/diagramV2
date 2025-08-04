@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Development Setup Script for UML Images Service
-# Подготавливает среду разработки
+# Prepares development environment
 
 set -e
 

@@ -1,7 +1,7 @@
 {
   "name": "uml-images-service",
   "version": "1.0.0",
-  "description": "UML Images Service - веб-сервис для генерации диаграмм из PlantUML кода",
+  "description": "UML Images Service - web service for generating diagrams from PlantUML code",
   "main": "index.js",
   "scripts": {
     "start": "docker-compose up",

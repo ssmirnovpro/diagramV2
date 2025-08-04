@@ -73,15 +73,15 @@ class UMLImageService {
         const imageContainer = document.getElementById('imageContainer');
         
         if (!umlCode) {
-            this.showStatus('Пожалуйста, введите PlantUML код', 'error');
+            this.showStatus('Please enter PlantUML code', 'error');
             return;
         }
 
         try {
             // Update UI state
             generateBtn.disabled = true;
-            generateBtn.innerHTML = '<span class="loading-spinner"></span>Генерация...';
-            this.showStatus('Генерация диаграммы...', 'loading');
+            generateBtn.innerHTML = '<span class="loading-spinner"></span>Generating...';
+            this.showStatus('Generating diagram...', 'loading');
             
             // Clear previous image
             this.clearImage();
@@ -113,19 +113,19 @@ class UMLImageService {
             this.displayImage(imageUrl);
             
             // Update UI state
-            this.showStatus('✅ Диаграмма успешно сгенерирована', 'success');
+            this.showStatus('✅ Diagram generated successfully', 'success');
             this.enableImageControls();
             
             console.log('✅ Diagram generated successfully');
             
         } catch (error) {
             console.error('❌ Generation failed:', error);
-            this.showStatus(`❌ Ошибка: ${error.message}`, 'error');
+            this.showStatus(`❌ Error: ${error.message}`, 'error');
             this.displayError(error.message);
         } finally {
             // Reset button state
             generateBtn.disabled = false;
-            generateBtn.innerHTML = '🚀 Сгенерировать диаграмму';
+            generateBtn.innerHTML = '🚀 Generate Diagram';
         }
     }
 
@@ -139,7 +139,7 @@ class UMLImageService {
         imageContainer.innerHTML = `
             <div class="placeholder">
                 <div class="placeholder-icon">⚠️</div>
-                <p><strong>Ошибка генерации</strong></p>
+                <p><strong>Generation Error</strong></p>
                 <p class="placeholder-hint">${this.escapeHtml(message)}</p>
             </div>
         `;
@@ -150,8 +150,8 @@ class UMLImageService {
         imageContainer.innerHTML = `
             <div class="placeholder">
                 <div class="placeholder-icon">📊</div>
-                <p>Здесь появится ваша диаграмма</p>
-                <p class="placeholder-hint">Введите PlantUML код и нажмите "Сгенерировать диаграмму"</p>
+                <p>Your diagram will appear here</p>
+                <p class="placeholder-hint">Enter PlantUML code and click "Generate Diagram"</p>
             </div>
         `;
         this.disableImageControls();
@@ -184,40 +184,40 @@ class UMLImageService {
     loadExample() {
         const exampleCode = `@startuml
 !theme plain
-title Пример UML диаграммы
+title UML Diagram Example
 
-actor Пользователь as user
+actor User as user
 participant "UI Service" as ui
 participant "API Service" as api
 participant "Kroki Service" as kroki
 
-user -> ui: Открывает веб-интерфейс
-ui -> user: Показывает форму
+user -> ui: Opens web interface
+ui -> user: Shows form
 
-user -> ui: Вводит PlantUML код
-user -> ui: Нажимает "Генерировать"
+user -> ui: Enters PlantUML code
+user -> ui: Clicks "Generate"
 
 ui -> api: POST /api/v1/generate
-api -> kroki: Запрос рендеринга
-kroki -> api: Возвращает PNG
-api -> ui: Возвращает изображение
-ui -> user: Показывает диаграмму
+api -> kroki: Rendering request
+kroki -> api: Returns PNG
+api -> ui: Returns image
+ui -> user: Shows diagram
 
 @enduml`;
         
         document.getElementById('umlCode').value = exampleCode;
-        this.showStatus('Пример загружен. Нажмите "Сгенерировать диаграмму"', 'success');
+        this.showStatus('Example loaded. Click "Generate Diagram"', 'success');
     }
 
     clearCode() {
         document.getElementById('umlCode').value = '';
         this.clearImage();
-        this.showStatus('Код очищен', 'success');
+        this.showStatus('Code cleared', 'success');
     }
 
     downloadImage() {
         if (!this.currentImageBlob) {
-            this.showStatus('Нет изображения для скачивания', 'error');
+            this.showStatus('No image to download', 'error');
             return;
         }
 
@@ -230,7 +230,7 @@ ui -> user: Показывает диаграмму
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        this.showStatus('Изображение загружено', 'success');
+        this.showStatus('Image downloaded', 'success');
     }
 
     openFullscreen() {
