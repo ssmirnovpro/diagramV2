@@ -24,19 +24,19 @@ module.exports = defineConfig({
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.UI_URL || 'http://localhost:9002',
-    
+
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
-    
+
     /* Take screenshot on failure */
     screenshot: 'only-on-failure',
-    
+
     /* Record video on failure */
     video: 'retain-on-failure',
-    
+
     /* Global timeout for each action */
     actionTimeout: 30000,
-    
+
     /* Global timeout for navigation */
     navigationTimeout: 30000,
   },
@@ -93,7 +93,7 @@ module.exports = defineConfig({
 
   /* Test timeout */
   timeout: 60000,
-  
+
   /* Expect timeout */
   expect: {
     timeout: 10000,

@@ -9,7 +9,7 @@ describe('API Service', () => {
     // Set test environment
     process.env.NODE_ENV = 'test';
     process.env.PORT = '0'; // Use random port
-    
+
     // Check if server.js exists
     const serverPath = path.join(__dirname, '..', 'server.js');
     try {
@@ -35,7 +35,7 @@ describe('API Service', () => {
       const response = await request(app)
         .get('/health')
         .expect('Content-Type', /json/);
-      
+
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('status');
     });

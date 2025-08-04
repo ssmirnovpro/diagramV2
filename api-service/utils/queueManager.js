@@ -17,7 +17,7 @@ class QueueManager {
       delayed: 0,
       completed: 0
     };
-    
+
     // Queue configurations
     this.queueConfigs = {
       diagram: {
@@ -60,7 +60,7 @@ class QueueManager {
     try {
       const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
       const krokiUrl = process.env.KROKI_URL || 'http://kroki-service:8000';
-      
+
       this.formatManager = new FormatManager(krokiUrl);
 
       // Initialize queues
@@ -80,14 +80,14 @@ class QueueManager {
 
         // Setup event listeners
         this.setupQueueEventListeners(this.queues[queueType], queueType);
-        
+
         // Setup processors
         await this.setupProcessor(queueType, config.concurrency);
       }
 
       // Start queue monitoring
       this.startQueueMonitoring();
-      
+
       this.isInitialized = true;
       logger.info('Queue manager initialized successfully', {
         queues: Object.keys(this.queues),
@@ -101,7 +101,7 @@ class QueueManager {
   }
 
   setupQueueEventListeners(queue, queueType) {
-    queue.on('completed', (job, result) => {
+    queue.on('completed', (job, _result) => {
       this.queueStats.completed++;
       logger.debug('Job completed', {
         queueType,
@@ -121,7 +121,7 @@ class QueueManager {
       });
     });
 
-    queue.on('active', (job, jobPromise) => {
+    queue.on('active', (job, _jobPromise) => {
       logger.debug('Job started', {
         queueType,
         jobId: job.id,
@@ -147,19 +147,19 @@ class QueueManager {
 
   async setupProcessor(queueType, concurrency) {
     const queue = this.queues[queueType];
-    
+
     switch (queueType) {
-      case 'diagram':
-        await queue.process(concurrency, this.processDiagramJob.bind(this));
-        break;
-      case 'batch':
-        await queue.process(concurrency, this.processBatchJob.bind(this));
-        break;
-      case 'webhook':
-        await queue.process(concurrency, this.processWebhookJob.bind(this));
-        break;
-      default:
-        throw new Error(`Unknown queue type: ${queueType}`);
+    case 'diagram':
+      await queue.process(concurrency, this.processDiagramJob.bind(this));
+      break;
+    case 'batch':
+      await queue.process(concurrency, this.processBatchJob.bind(this));
+      break;
+    case 'webhook':
+      await queue.process(concurrency, this.processWebhookJob.bind(this));
+      break;
+    default:
+      throw new Error(`Unknown queue type: ${queueType}`);
     }
   }
 
@@ -167,7 +167,7 @@ class QueueManager {
   async processDiagramJob(job) {
     const startTime = Date.now();
     const { uml, format, diagramType, options, requestId } = job.data;
-    
+
     try {
       logger.info('Processing diagram job', {
         jobId: job.id,
@@ -183,15 +183,15 @@ class QueueManager {
       // Check cache first
       const cacheKey = cacheManager.generateCacheKey(uml, format, { diagramType, ...options });
       let result = await cacheManager.getCachedDiagram(cacheKey);
-      
+
       await job.progress(30);
 
       if (!result) {
         // Generate diagram
         result = await this.formatManager.generateDiagram(uml, diagramType, format, options);
-        
+
         await job.progress(80);
-        
+
         // Cache the result
         await cacheManager.cacheDiagram(cacheKey, result.data, result.metadata);
       }
@@ -199,7 +199,7 @@ class QueueManager {
       await job.progress(100);
 
       const duration = Date.now() - startTime;
-      
+
       // Update metrics
       businessMetrics.trackSuccessfulGeneration(diagramType);
       recordDiagramGeneration(diagramType, 'success', duration);
@@ -222,7 +222,7 @@ class QueueManager {
 
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
       logger.error('Diagram job failed', {
         jobId: job.id,
         requestId,
@@ -242,7 +242,7 @@ class QueueManager {
   async processBatchJob(job) {
     const startTime = Date.now();
     const { requests, batchId, webhookUrl } = job.data;
-    
+
     try {
       logger.info('Processing batch job', {
         jobId: job.id,
@@ -252,10 +252,10 @@ class QueueManager {
 
       const results = [];
       const total = requests.length;
-      
+
       for (let i = 0; i < total; i++) {
         const request = requests[i];
-        
+
         try {
           // Process each diagram in the batch
           const diagramResult = await this.formatManager.generateDiagram(
@@ -354,10 +354,10 @@ class QueueManager {
   // Process webhook delivery
   async processWebhookJob(job) {
     const { url, payload, headers = {} } = job.data;
-    
+
     try {
       const axios = require('axios');
-      
+
       const response = await axios.post(url, payload, {
         headers: {
           'Content-Type': 'application/json',
@@ -400,7 +400,7 @@ class QueueManager {
     };
 
     const job = await this.queues.diagram.add(data, jobOptions);
-    
+
     logger.debug('Diagram generation job queued', {
       jobId: job.id,
       priority: jobOptions.priority
@@ -423,7 +423,7 @@ class QueueManager {
     };
 
     const job = await this.queues.batch.add(data, jobOptions);
-    
+
     logger.info('Batch processing job queued', {
       jobId: job.id,
       batchId: data.batchId,
@@ -447,7 +447,7 @@ class QueueManager {
     };
 
     const job = await this.queues.webhook.add(data, jobOptions);
-    
+
     logger.debug('Webhook delivery job queued', {
       jobId: job.id,
       url: data.url
@@ -483,7 +483,7 @@ class QueueManager {
   // Get queue statistics
   async getQueueStats() {
     const stats = {};
-    
+
     for (const [queueType, queue] of Object.entries(this.queues)) {
       const waiting = await queue.getWaiting();
       const active = await queue.getActive();
@@ -512,7 +512,7 @@ class QueueManager {
     setInterval(async () => {
       try {
         const stats = await this.getQueueStats();
-        
+
         // Update Prometheus metrics
         let totalWaiting = 0;
         for (const queueStats of Object.values(stats)) {
@@ -520,7 +520,7 @@ class QueueManager {
             totalWaiting += queueStats.waiting;
           }
         }
-        
+
         updateQueueSize(totalWaiting);
 
       } catch (error) {
@@ -559,7 +559,7 @@ class QueueManager {
   // Graceful shutdown
   async shutdown() {
     logger.info('Shutting down queue manager...');
-    
+
     for (const [queueType, queue] of Object.entries(this.queues)) {
       try {
         await queue.close();
@@ -568,7 +568,7 @@ class QueueManager {
         logger.error('Error closing queue', { queueType, error: error.message });
       }
     }
-    
+
     this.isInitialized = false;
     logger.info('Queue manager shutdown complete');
   }

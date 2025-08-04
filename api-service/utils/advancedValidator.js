@@ -1,4 +1,4 @@
-const Joi = require('joi');
+// const Joi = require('joi'); // Unused import (TODO: implement Joi validation)
 const { logger } = require('./logger');
 const { cacheManager } = require('./cache');
 const crypto = require('crypto');
@@ -15,63 +15,64 @@ class AdvancedValidator {
         /onload\s*=/gi,
         /onerror\s*=/gi,
         /onclick\s*=/gi,
-        
+
         // PlantUML-specific dangerous patterns
         /!include\s+https?:\/\//gi,
         /!includeurl\s+/gi,
         /!define\s+.*system.*exec/gi,
         /!define\s+.*command/gi,
         /!pragma\s+.*teoz/gi,
-        
+
         // File system access attempts
         /\.\.\/\.\.\//g,
         /\/etc\/passwd/gi,
         /\/proc\/self/gi,
         /C:\\Windows\\System32/gi,
-        
+
         // Network access attempts
-        /https?:\/\/[^\/\s]+\/[^\s]*/gi,
-        /ftp:\/\/[^\/\s]+/gi,
-        /file:\/\/[^\/\s]+/gi,
-        
+        /https?:\/\/[^/\s]+\/[^\s]*/gi,
+        /ftp:\/\/[^/\s]+/gi,
+        /file:\/\/[^/\s]+/gi,
+
         // Command injection patterns
         /`[^`]*`/g,
         /\$\([^)]*\)/g,
         /;\s*rm\s+/gi,
         /;\s*curl\s+/gi,
         /;\s*wget\s+/gi,
-        
+
         // SQL injection patterns
         /union\s+select/gi,
         /drop\s+table/gi,
         /insert\s+into/gi,
         /delete\s+from/gi,
-        
+
         // XXE attack patterns
         /<!ENTITY/gi,
         /<!DOCTYPE.*ENTITY/gi,
-        
+
         // LDAP injection
         /\(\|\(/g,
         /\)\|\)/g
       ],
-      
+
       // Suspicious patterns that warrant logging
       suspicious: [
         // Unusual encoding
         /%[0-9a-f]{2}/gi,
         /\\x[0-9a-f]{2}/gi,
         /\\u[0-9a-f]{4}/gi,
-        
+
         // Excessive repetition
         /(.)\1{50,}/g,
-        
+
         // Very long lines
         /.{1000,}/g,
-        
-        // Unusual characters
+
+        // Unusual characters (binary/control characters)
+        // eslint-disable-next-line no-control-regex
         /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g,
-        
+
         // Potential data exfiltration
         /password/gi,
         /secret/gi,
@@ -116,7 +117,7 @@ class AdvancedValidator {
           /!pragma.*unsafe/gi
         ]
       },
-      
+
       mermaid: {
         maxSize: 80000,
         allowedTypes: [
@@ -129,7 +130,7 @@ class AdvancedValidator {
           /click\s+\w+\s+javascript:/gi
         ]
       },
-      
+
       graphviz: {
         maxSize: 60000,
         allowedAttributes: [
@@ -192,7 +193,7 @@ class AdvancedValidator {
         diagramType,
         contentLength: umlContent.length
       });
-      
+
       return {
         isValid: false,
         errors: [{
@@ -245,7 +246,7 @@ class AdvancedValidator {
     this.performQualityChecks(umlContent, result);
 
     // Determine overall validity
-    result.isValid = result.errors.length === 0 && 
+    result.isValid = result.errors.length === 0 &&
                      result.securityIssues.filter(issue => issue.severity === 'high').length === 0;
 
     return result;
@@ -277,6 +278,7 @@ class AdvancedValidator {
     }
 
     // Check for binary content
+    // eslint-disable-next-line no-control-regex
     if (/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/.test(content)) {
       result.errors.push({
         type: 'BINARY_CONTENT',
@@ -353,7 +355,7 @@ class AdvancedValidator {
     // Check for proper start/end tags
     const hasStart = /@startuml/i.test(content);
     const hasEnd = /@enduml/i.test(content);
-    
+
     if (hasStart && !hasEnd) {
       result.warnings.push({
         type: 'MISSING_END_TAG',
@@ -371,7 +373,7 @@ class AdvancedValidator {
     // Check for nested diagrams
     const startMatches = (content.match(/@startuml/gi) || []).length;
     const endMatches = (content.match(/@enduml/gi) || []).length;
-    
+
     if (startMatches > 1 || endMatches > 1) {
       result.warnings.push({
         type: 'NESTED_DIAGRAMS',
@@ -403,7 +405,7 @@ class AdvancedValidator {
     // Check for valid diagram type declaration
     const mermaidTypes = ['graph', 'sequenceDiagram', 'classDiagram', 'stateDiagram', 'erDiagram', 'journey', 'gantt', 'pie', 'flowchart'];
     const hasValidType = mermaidTypes.some(type => new RegExp(`^\\s*${type}`, 'im').test(content));
-    
+
     if (!hasValidType) {
       result.warnings.push({
         type: 'NO_DIAGRAM_TYPE',
@@ -467,7 +469,7 @@ class AdvancedValidator {
       /(?:api[_-]?key|token)\s*[:=]\s*["']?[a-zA-Z0-9_-]{10,}/gi,
       /(?:secret|private[_-]?key)\s*[:=]\s*["']?[^\s"']+/gi,
       /\b(?:\d{4}[-.\s]?\d{4}[-.\s]?\d{4}[-.\s]?\d{4})\b/g, // Credit card pattern
-      /\b(?:\d{3}-\d{2}-\d{4})\b/g, // SSN pattern
+      /\b(?:\d{3}-\d{2}-\d{4})\b/g // SSN pattern
     ];
 
     for (const pattern of sensitiveDataPatterns) {
@@ -497,7 +499,7 @@ class AdvancedValidator {
     const lines = content.split('\n');
     const maxLineLength = 5000;
     const longLines = lines.filter(line => line.length > maxLineLength);
-    
+
     if (longLines.length > 0) {
       result.securityIssues.push({
         type: 'LONG_LINES',
@@ -520,7 +522,7 @@ class AdvancedValidator {
   calculateNestingLevel(content) {
     let maxLevel = 0;
     let currentLevel = 0;
-    
+
     for (const char of content) {
       if (char === '{' || char === '(' || char === '[') {
         currentLevel++;
@@ -529,24 +531,24 @@ class AdvancedValidator {
         currentLevel = Math.max(0, currentLevel - 1);
       }
     }
-    
+
     return maxLevel;
   }
 
   validateSyntax(content, diagramType, result) {
     // Basic syntax validation (can be extended with proper parsers)
     const lines = content.split('\n');
-    
+
     // Check for unmatched brackets/parentheses
     const brackets = { '(': ')', '[': ']', '{': '}', '<': '>' };
     const stack = [];
-    
+
     for (let lineNum = 0; lineNum < lines.length; lineNum++) {
       const line = lines[lineNum];
-      
+
       for (let i = 0; i < line.length; i++) {
         const char = line[i];
-        
+
         if (brackets[char]) {
           stack.push({ char, line: lineNum + 1, pos: i + 1 });
         } else if (Object.values(brackets).includes(char)) {
@@ -563,7 +565,7 @@ class AdvancedValidator {
         }
       }
     }
-    
+
     // Report unclosed brackets
     while (stack.length > 0) {
       const unclosed = stack.pop();
@@ -579,7 +581,7 @@ class AdvancedValidator {
 
   assessPerformanceImpact(content, diagramType, result) {
     const complexity = this.calculateComplexity(content, diagramType);
-    
+
     if (complexity.score > 1000) {
       result.warnings.push({
         type: 'HIGH_COMPLEXITY',
@@ -610,34 +612,34 @@ class AdvancedValidator {
     }
   }
 
-  calculateComplexity(content, diagramType) {
+  calculateComplexity(content, _diagramType) {
     let score = 0;
     const factors = {};
-    
+
     // Base complexity from content length
     score += Math.floor(content.length / 100);
     factors.contentLength = Math.floor(content.length / 100);
-    
+
     // Line count
     const lines = content.split('\n').length;
     score += lines * 2;
     factors.lineCount = lines * 2;
-    
+
     // Element count (arrows, connections, etc.)
     const arrows = (content.match(/-->|->|<--|<-/g) || []).length;
     score += arrows * 3;
     factors.arrows = arrows * 3;
-    
+
     // Classes/participants
     const elements = (content.match(/class\s+\w+|participant\s+\w+|actor\s+\w+/gi) || []).length;
     score += elements * 5;
     factors.elements = elements * 5;
-    
+
     // Nested structures
     const nestingLevel = this.calculateNestingLevel(content);
     score += nestingLevel * 10;
     factors.nesting = nestingLevel * 10;
-    
+
     return { score, factors };
   }
 

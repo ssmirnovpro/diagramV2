@@ -7,7 +7,7 @@ test.describe('UML Diagram Generation', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the application
     await page.goto('/');
-    
+
     // Wait for the page to load
     await expect(page).toHaveTitle(/UML/i);
   });
@@ -15,19 +15,19 @@ test.describe('UML Diagram Generation', () => {
   test('should generate a simple sequence diagram', async ({ page }) => {
     // Fill in UML code
     const umlCode = '@startuml\nAlice -> Bob: Hello\nBob -> Alice: Hi there!\n@enduml';
-    
+
     await page.fill('[data-testid="uml-input"]', umlCode);
-    
+
     // Click generate button
     await page.click('[data-testid="generate-button"]');
-    
+
     // Wait for diagram to be generated
     await expect(page.locator('[data-testid="diagram-output"]')).toBeVisible({ timeout: 10000 });
-    
+
     // Check if image is loaded
     const diagramImage = page.locator('[data-testid="diagram-image"]');
     await expect(diagramImage).toBeVisible();
-    
+
     // Verify image source is not empty
     const imageSrc = await diagramImage.getAttribute('src');
     expect(imageSrc).toBeTruthy();
@@ -37,15 +37,15 @@ test.describe('UML Diagram Generation', () => {
   test('should handle invalid UML syntax gracefully', async ({ page }) => {
     // Fill in invalid UML code
     const invalidUmlCode = '@startuml\nInvalid syntax here\n@enduml';
-    
+
     await page.fill('[data-testid="uml-input"]', invalidUmlCode);
-    
+
     // Click generate button
     await page.click('[data-testid="generate-button"]');
-    
+
     // Wait for error message
     await expect(page.locator('[data-testid="error-message"]')).toBeVisible({ timeout: 5000 });
-    
+
     // Check error message content
     const errorText = await page.locator('[data-testid="error-message"]').textContent();
     expect(errorText).toContain('error');
@@ -70,20 +70,20 @@ test.describe('UML Diagram Generation', () => {
     for (const diagram of diagramTypes) {
       // Clear previous input
       await page.fill('[data-testid="uml-input"]', '');
-      
+
       // Fill in new UML code
       await page.fill('[data-testid="uml-input"]', diagram.uml);
-      
+
       // Click generate button
       await page.click('[data-testid="generate-button"]');
-      
+
       // Wait for diagram to be generated
       await expect(page.locator('[data-testid="diagram-output"]')).toBeVisible({ timeout: 10000 });
-      
+
       // Verify image is generated
       const diagramImage = page.locator('[data-testid="diagram-image"]');
       await expect(diagramImage).toBeVisible();
-      
+
       console.log(`✅ ${diagram.name} generated successfully`);
     }
   });
@@ -92,16 +92,16 @@ test.describe('UML Diagram Generation', () => {
     // Fill in UML code
     const umlCode = '@startuml\nAlice -> Bob: Hello\n@enduml';
     await page.fill('[data-testid="uml-input"]', umlCode);
-    
+
     // Click generate button
     await page.click('[data-testid="generate-button"]');
-    
+
     // Check for loading indicator
     await expect(page.locator('[data-testid="loading-indicator"]')).toBeVisible();
-    
+
     // Wait for generation to complete
     await expect(page.locator('[data-testid="loading-indicator"]')).toBeHidden({ timeout: 10000 });
-    
+
     // Verify diagram is shown
     await expect(page.locator('[data-testid="diagram-output"]')).toBeVisible();
   });
@@ -112,17 +112,17 @@ test.describe('UML Diagram Generation', () => {
       await page.waitForTimeout(35000); // Delay longer than timeout
       await route.continue();
     });
-    
+
     // Fill in UML code
     const umlCode = '@startuml\nAlice -> Bob: Hello\n@enduml';
     await page.fill('[data-testid="uml-input"]', umlCode);
-    
+
     // Click generate button
     await page.click('[data-testid="generate-button"]');
-    
+
     // Check for timeout error
     await expect(page.locator('[data-testid="error-message"]')).toBeVisible({ timeout: 40000 });
-    
+
     const errorText = await page.locator('[data-testid="error-message"]').textContent();
     expect(errorText.toLowerCase()).toContain('timeout');
   });
@@ -133,24 +133,24 @@ test.describe('UML Diagram Generation', () => {
     await page.fill('[data-testid="uml-input"]', firstUml);
     await page.click('[data-testid="generate-button"]');
     await expect(page.locator('[data-testid="diagram-output"]')).toBeVisible({ timeout: 10000 });
-    
+
     // Generate second diagram
     const secondUml = '@startuml\nAlice -> Bob: Second\n@enduml';
     await page.fill('[data-testid="uml-input"]', secondUml);
     await page.click('[data-testid="generate-button"]');
     await expect(page.locator('[data-testid="diagram-output"]')).toBeVisible({ timeout: 10000 });
-    
+
     // Check history
     await page.click('[data-testid="history-button"]');
     await expect(page.locator('[data-testid="history-panel"]')).toBeVisible();
-    
+
     // Verify both diagrams are in history
     const historyItems = page.locator('[data-testid="history-item"]');
     expect(await historyItems.count()).toBeGreaterThanOrEqual(2);
-    
+
     // Load first diagram from history
     await historyItems.first().click();
-    
+
     // Verify correct diagram is loaded
     const inputValue = await page.locator('[data-testid="uml-input"]').inputValue();
     expect(inputValue).toContain('First');
@@ -162,13 +162,13 @@ test.describe('UML Diagram Generation', () => {
     await page.fill('[data-testid="uml-input"]', umlCode);
     await page.click('[data-testid="generate-button"]');
     await expect(page.locator('[data-testid="diagram-output"]')).toBeVisible({ timeout: 10000 });
-    
+
     // Test PNG export
     const downloadPromise = page.waitForEvent('download');
     await page.click('[data-testid="export-png"]');
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.png$/);
-    
+
     // Test SVG export if available
     if (await page.locator('[data-testid="export-svg"]').isVisible()) {
       const svgDownloadPromise = page.waitForEvent('download');
@@ -184,10 +184,10 @@ test.describe('API Health and Performance', () => {
     const start = Date.now();
     const response = await request.get(`${API_URL}/health`);
     const duration = Date.now() - start;
-    
+
     expect(response.status()).toBe(200);
     expect(duration).toBeLessThan(1000); // Should respond within 1 second
-    
+
     const body = await response.json();
     expect(body).toHaveProperty('status', 'healthy');
     expect(body).toHaveProperty('service', 'api-service');
@@ -195,10 +195,10 @@ test.describe('API Health and Performance', () => {
 
   test('should provide metrics endpoint', async ({ request }) => {
     const response = await request.get(`${API_URL}/metrics`);
-    
+
     expect(response.status()).toBe(200);
     expect(response.headers()['content-type']).toContain('text/plain');
-    
+
     const body = await response.text();
     expect(body).toContain('# HELP');
     expect(body).toContain('# TYPE');
@@ -207,7 +207,7 @@ test.describe('API Health and Performance', () => {
   test('should handle concurrent diagram generations', async ({ request }) => {
     const umlCode = '@startuml\nAlice -> Bob: Concurrent test\n@enduml';
     const requests = [];
-    
+
     // Send 10 concurrent requests
     for (let i = 0; i < 10; i++) {
       requests.push(
@@ -217,9 +217,9 @@ test.describe('API Health and Performance', () => {
         })
       );
     }
-    
+
     const responses = await Promise.all(requests);
-    
+
     // All requests should succeed
     responses.forEach((response, index) => {
       expect(response.status(), `Request ${index + 1} failed`).toBe(200);
@@ -235,16 +235,16 @@ test.describe('Security Tests', () => {
       '@startuml\n!include <script>alert("xss")</script>\n@enduml',
       '@startuml\n!define EVIL !include /etc/passwd\n@enduml'
     ];
-    
+
     for (const maliciousInput of maliciousInputs) {
       const response = await request.post(`${API_URL}/api/v1/generate`, {
         data: { uml: maliciousInput },
         headers: { 'Content-Type': 'application/json' }
       });
-      
+
       // Should either reject (400/403) or sanitize the input
       expect([200, 400, 403]).toContain(response.status());
-      
+
       if (response.status() === 200) {
         // If accepted, verify the response doesn't contain sensitive data
         const body = await response.text();
@@ -256,9 +256,9 @@ test.describe('Security Tests', () => {
 
   test('should have proper security headers', async ({ request }) => {
     const response = await request.get(`${UI_URL}/`);
-    
+
     expect(response.status()).toBe(200);
-    
+
     const headers = response.headers();
     expect(headers).toHaveProperty('x-frame-options');
     expect(headers).toHaveProperty('x-content-type-options', 'nosniff');
@@ -269,23 +269,23 @@ test.describe('Security Tests', () => {
   test('should rate limit excessive requests', async ({ request }) => {
     const umlCode = '@startuml\nAlice -> Bob: Rate limit test\n@enduml';
     let rateLimited = false;
-    
+
     // Send many requests quickly
     for (let i = 0; i < 100; i++) {
       const response = await request.post(`${API_URL}/api/v1/generate`, {
         data: { uml: umlCode },
         headers: { 'Content-Type': 'application/json' }
       });
-      
+
       if (response.status() === 429) {
         rateLimited = true;
         break;
       }
-      
+
       // Small delay between requests
       await new Promise(resolve => setTimeout(resolve, 10));
     }
-    
+
     expect(rateLimited).toBe(true);
   });
 });

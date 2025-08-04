@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, param, query, validationResult } = require('express-validator');
+const { body, query /* validationResult */ } = require('express-validator');
 const { generateRateLimit, handleValidationErrors } = require('../middleware/security');
 const { logger } = require('../utils/logger');
 const { webhookManager } = require('../utils/webhookManager');
@@ -124,7 +124,7 @@ router.get('/stats',
   async (req, res, next) => {
     try {
       const { startDate, endDate } = req.query;
-      
+
       // Default to last 24 hours if no dates provided
       const end = endDate ? new Date(endDate) : new Date();
       const start = startDate ? new Date(startDate) : new Date(end.getTime() - 24 * 60 * 60 * 1000);

@@ -17,7 +17,7 @@ class CacheManager {
   async initialize() {
     try {
       const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-      
+
       this.client = redis.createClient({
         url: redisUrl,
         socket: {
@@ -56,11 +56,11 @@ class CacheManager {
       });
 
       await this.client.connect();
-      
+
       // Test connection
       await this.client.ping();
       logger.info('Redis cache manager initialized successfully');
-      
+
     } catch (error) {
       logger.error('Failed to initialize Redis cache', { error: error.message });
       this.isConnected = false;
@@ -97,16 +97,16 @@ class CacheManager {
 
       await this.client.setEx(key, ttl, JSON.stringify(cacheEntry));
       this.cacheStats.sets++;
-      
+
       logger.debug('Diagram cached successfully', {
         key: key.substring(0, 16) + '...',
         size: diagramData.length,
         ttl
       });
-      
+
       return true;
     } catch (error) {
-      logger.error('Failed to cache diagram', { 
+      logger.error('Failed to cache diagram', {
         error: error.message,
         key: key.substring(0, 16) + '...'
       });
@@ -131,9 +131,9 @@ class CacheManager {
 
       const cacheEntry = JSON.parse(cached);
       const diagramData = Buffer.from(cacheEntry.data, 'base64');
-      
+
       this.cacheStats.hits++;
-      
+
       logger.debug('Cache hit', {
         key: key.substring(0, 16) + '...',
         size: diagramData.length,
@@ -145,7 +145,7 @@ class CacheManager {
         metadata: cacheEntry.metadata
       };
     } catch (error) {
-      logger.error('Failed to retrieve cached diagram', { 
+      logger.error('Failed to retrieve cached diagram', {
         error: error.message,
         key: key.substring(0, 16) + '...'
       });
@@ -156,7 +156,9 @@ class CacheManager {
 
   // Cache UML validation results
   async cacheValidation(umlHash, validationResult, ttl = 1800) {
-    if (!this.isConnected) return false;
+    if (!this.isConnected) {
+      return false;
+    }
 
     try {
       const key = `validation:${umlHash}`;
@@ -171,7 +173,9 @@ class CacheManager {
 
   // Get cached validation result
   async getCachedValidation(umlHash) {
-    if (!this.isConnected) return null;
+    if (!this.isConnected) {
+      return null;
+    }
 
     try {
       const key = `validation:${umlHash}`;
@@ -185,7 +189,9 @@ class CacheManager {
 
   // Cache API response metadata
   async cacheApiResponse(key, response, ttl = 300) {
-    if (!this.isConnected) return false;
+    if (!this.isConnected) {
+      return false;
+    }
 
     try {
       await this.client.setEx(`api:${key}`, ttl, JSON.stringify(response));
@@ -198,7 +204,9 @@ class CacheManager {
 
   // Get cached API response
   async getCachedApiResponse(key) {
-    if (!this.isConnected) return null;
+    if (!this.isConnected) {
+      return null;
+    }
 
     try {
       const cached = await this.client.get(`api:${key}`);
@@ -211,11 +219,13 @@ class CacheManager {
 
   // Batch operations for multiple diagrams
   async batchCacheDiagrams(diagrams) {
-    if (!this.isConnected) return false;
+    if (!this.isConnected) {
+      return false;
+    }
 
     try {
       const pipeline = this.client.multi();
-      
+
       for (const { key, data, metadata, ttl } of diagrams) {
         const cacheEntry = {
           data: data.toString('base64'),
@@ -230,7 +240,7 @@ class CacheManager {
 
       await pipeline.exec();
       this.cacheStats.sets += diagrams.length;
-      
+
       logger.info('Batch cached diagrams', { count: diagrams.length });
       return true;
     } catch (error) {
@@ -241,7 +251,9 @@ class CacheManager {
 
   // Cache invalidation patterns
   async invalidatePattern(pattern) {
-    if (!this.isConnected) return false;
+    if (!this.isConnected) {
+      return false;
+    }
 
     try {
       const keys = await this.client.keys(pattern);
@@ -261,7 +273,7 @@ class CacheManager {
   getCacheStats() {
     const total = this.cacheStats.hits + this.cacheStats.misses;
     const hitRatio = total > 0 ? (this.cacheStats.hits / total) : 0;
-    
+
     return {
       ...this.cacheStats,
       hitRatio: Math.round(hitRatio * 10000) / 100, // percentage with 2 decimals
@@ -283,24 +295,24 @@ class CacheManager {
   // Cache warming for popular diagrams
   async warmCache(popularDiagrams) {
     logger.info('Starting cache warming', { count: popularDiagrams.length });
-    
+
     for (const diagram of popularDiagrams) {
       try {
         // Pre-generate and cache popular diagram types
         const key = this.generateCacheKey(diagram.uml, diagram.format);
         const exists = await this.client.exists(key);
-        
+
         if (!exists) {
-          logger.debug('Pre-warming cache for popular diagram', { 
+          logger.debug('Pre-warming cache for popular diagram', {
             type: diagram.type,
-            format: diagram.format 
+            format: diagram.format
           });
           // This would integrate with your diagram generation logic
         }
       } catch (error) {
-        logger.error('Cache warming failed for diagram', { 
+        logger.error('Cache warming failed for diagram', {
           error: error.message,
-          type: diagram.type 
+          type: diagram.type
         });
       }
     }
@@ -308,13 +320,15 @@ class CacheManager {
 
   // Cleanup expired entries and optimize memory
   async cleanup() {
-    if (!this.isConnected) return;
+    if (!this.isConnected) {
+      return;
+    }
 
     try {
       // Redis handles TTL automatically, but we can run maintenance
       const info = await this.client.info('memory');
-      logger.info('Cache cleanup completed', { 
-        memoryInfo: info.split('\r\n').filter(line => 
+      logger.info('Cache cleanup completed', {
+        memoryInfo: info.split('\r\n').filter(line =>
           line.includes('used_memory') || line.includes('expired_keys')
         ).join(', ')
       });

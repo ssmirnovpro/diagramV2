@@ -8,32 +8,32 @@ const options = {
       version: '2.0.0',
       description: `
         A comprehensive, high-performance API service for generating UML diagrams with advanced features including:
-        
+
         - **Multiple Format Support**: PNG, SVG, PDF, JPEG, WebP outputs
         - **Batch Processing**: Generate multiple diagrams asynchronously
         - **Caching**: Redis-based intelligent caching for optimal performance
         - **Security**: Advanced validation and security scanning
         - **Queue Management**: Asynchronous processing with job tracking
         - **Analytics**: Comprehensive usage analytics and monitoring
-        
+
         ## Authentication
-        
+
         API key authentication is supported for enhanced rate limits and analytics.
         Include your API key in the \`X-API-Key\` header.
-        
+
         ## Rate Limiting
-        
+
         - **Without API Key**: 10 requests per minute
         - **With API Key**: 100 requests per minute (customizable)
         - **Batch Operations**: Lower limits apply
-        
+
         ## Caching
-        
+
         Responses are automatically cached for improved performance. Cache headers indicate hit/miss status.
         Use \`cache=false\` in request body to bypass caching.
-        
+
         ## Error Handling
-        
+
         All errors follow a consistent format with detailed error types and messages.
         HTTP status codes indicate the category of error.
       `,
@@ -107,7 +107,7 @@ const options = {
             }
           }
         },
-        
+
         BatchRequest: {
           type: 'object',
           required: ['requests'],
@@ -157,7 +157,7 @@ const options = {
             }
           }
         },
-        
+
         AsyncDiagramRequest: {
           type: 'object',
           required: ['uml'],
@@ -201,7 +201,7 @@ const options = {
             }
           }
         },
-        
+
         JobStatus: {
           type: 'object',
           properties: {
@@ -254,7 +254,7 @@ const options = {
             }
           }
         },
-        
+
         FormatInfo: {
           type: 'object',
           properties: {
@@ -290,7 +290,7 @@ const options = {
             }
           }
         },
-        
+
         ValidationResult: {
           type: 'object',
           properties: {
@@ -322,7 +322,7 @@ const options = {
                   severity: { type: 'string', enum: ['low', 'medium', 'high'] }
                 }
               },
-              description: 'Warnings that don\\'t prevent processing'
+              description: 'Warnings that don\'t prevent processing'
             },
             securityIssues: {
               type: 'array',
@@ -348,7 +348,7 @@ const options = {
             }
           }
         },
-        
+
         HealthStatus: {
           type: 'object',
           properties: {
@@ -416,7 +416,7 @@ const options = {
             }
           }
         },
-        
+
         Error: {
           type: 'object',
           properties: {
@@ -446,7 +446,7 @@ const options = {
           }
         }
       },
-      
+
       responses: {
         DiagramImage: {
           description: 'Generated diagram image',
@@ -512,7 +512,7 @@ const options = {
             }
           }
         },
-        
+
         ValidationError: {
           description: 'Validation error response',
           content: {
@@ -521,7 +521,7 @@ const options = {
             }
           }
         },
-        
+
         RateLimitExceeded: {
           description: 'Rate limit exceeded',
           content: {
@@ -545,7 +545,7 @@ const options = {
           }
         }
       },
-      
+
       parameters: {
         JobId: {
           name: 'jobId',
@@ -554,7 +554,7 @@ const options = {
           description: 'Unique job identifier',
           schema: { type: 'string' }
         },
-        
+
         DiagramType: {
           name: 'diagramType',
           in: 'query',
@@ -565,7 +565,7 @@ const options = {
             default: 'plantuml'
           }
         },
-        
+
         Format: {
           name: 'format',
           in: 'query',
@@ -575,7 +575,7 @@ const options = {
             enum: ['png', 'svg', 'pdf', 'jpeg', 'webp']
           }
         },
-        
+
         UseCase: {
           name: 'useCase',
           in: 'query',
@@ -587,7 +587,7 @@ const options = {
         }
       }
     },
-    
+
     tags: [
       {
         name: 'Generation',

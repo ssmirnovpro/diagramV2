@@ -1,0 +1,10 @@
+# Ignore browser-specific files that have too many globals
+public/
+
+# Node modules
+node_modules/
+
+# Generated files
+dist/
+build/
+coverage/

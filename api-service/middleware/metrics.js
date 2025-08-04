@@ -103,28 +103,28 @@ register.registerMetric(databaseConnectionPool);
 // Middleware to collect HTTP metrics
 const collectHttpMetrics = (req, res, next) => {
   const start = Date.now();
-  
+
   // Track active connections
   activeConnections.inc();
-  
+
   res.on('finish', () => {
     const duration = (Date.now() - start) / 1000;
     const route = req.route ? req.route.path : req.path;
     const method = req.method;
     const status = res.statusCode.toString();
-    
+
     // Record metrics
     httpRequestDuration
       .labels(method, route, status)
       .observe(duration);
-    
+
     httpRequestsTotal
       .labels(method, route, status)
       .inc();
-    
+
     // Decrease active connections
     activeConnections.dec();
-    
+
     // Log slow requests
     if (duration > 1) {
       logger.warn('Slow request detected', {
@@ -135,18 +135,18 @@ const collectHttpMetrics = (req, res, next) => {
         ip: req.ip
       });
     }
-    
+
     // Track authentication failures
     if (status === '401' || status === '403') {
       authFailures.labels('unauthorized').inc();
     }
-    
+
     // Track suspicious activity
     if (status === '429') {
       suspiciousRequests.labels('rate_limit_exceeded').inc();
     }
   });
-  
+
   next();
 };
 
@@ -155,11 +155,11 @@ const recordDiagramGeneration = (diagramType, status, duration, errorType = null
   diagramGenerationDuration
     .labels(diagramType, status)
     .observe(duration);
-  
+
   diagramGenerationTotal
     .labels(diagramType, status)
     .inc();
-  
+
   if (errorType) {
     diagramGenerationErrors
       .labels(errorType, diagramType)
@@ -203,18 +203,18 @@ const businessMetrics = {
   trackSuccessfulGeneration: (diagramType) => {
     diagramGenerationTotal.labels(diagramType, 'success').inc();
   },
-  
+
   // Track failed diagram generations
   trackFailedGeneration: (diagramType, errorType) => {
     diagramGenerationTotal.labels(diagramType, 'error').inc();
     diagramGenerationErrors.labels(errorType, diagramType).inc();
   },
-  
+
   // Track cache performance
   trackCacheHit: () => {
     // Implementation depends on your caching strategy
   },
-  
+
   // Track security events
   trackSecurityEvent: (eventType) => {
     suspiciousRequests.labels(eventType).inc();

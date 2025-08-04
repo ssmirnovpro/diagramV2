@@ -47,7 +47,7 @@ const speedLimiter = slowDown({
   windowMs: 15 * 60 * 1000, // 15 minutes
   delayAfter: 5, // allow 5 requests per windowMs without delay
   delayMs: 500, // add 500ms delay per request after delayAfter
-  maxDelayMs: 20000, // maximum delay of 20 seconds
+  maxDelayMs: 20000 // maximum delay of 20 seconds
 });
 
 // PlantUML Input Validation and Sanitization
@@ -60,36 +60,36 @@ const plantUMLValidator = [
       // Security checks for dangerous PlantUML patterns
       const dangerousPatterns = [
         // File system access
-        /!include\s+[\/\\]/i,
+        /!include\s+[/\\]/i,
         /!includeurl\s+file:/i,
         /!include\s+\.\.+/i,
-        
+
         // Network access (except HTTPS URLs)
         /!includeurl\s+(?!https:\/\/)/i,
         /!include\s+http:/i,
-        
+
         // Preprocessing commands that could be dangerous
         /!define\s+.*\$\{.*\}/i,
         /!function\s+.*system/i,
         /!procedure\s+.*system/i,
-        
+
         // Potential code execution
         /java\.lang/i,
         /runtime\.getruntime/i,
         /processbuilder/i,
         /system\.exit/i,
-        
+
         // Script injection
         /<script/i,
         /javascript:/i,
         /vbscript:/i,
-        
+
         // Path traversal
-        /\.\.+[\/\\]/,
-        /[\/\\]\.\.+/,
-        
+        /\.\.+[/\\]/,
+        /[/\\]\.\.+/,
+
         // Excessive recursion patterns
-        /(@start\w+[\s\S]*){10,}/i,
+        /(@start\w+[\s\S]*){10,}/i
       ];
 
       for (const pattern of dangerousPatterns) {
@@ -133,23 +133,25 @@ const handleValidationErrors = (req, res, next) => {
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
-    
+    if (!origin) {
+      return callback(null, true);
+    }
+
     // In production, specify exact domains
     const allowedOrigins = [
       'http://localhost:9002',
       'https://localhost:9002',
-      'http://127.0.0.1:9002',
+      'http://127.0.0.1:9002'
       // Add your production domains here
     ];
-    
+
     if (process.env.NODE_ENV === 'development') {
       // More permissive in development
       if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
         return callback(null, true);
       }
     }
-    
+
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -167,23 +169,23 @@ const corsOptions = {
 const helmetConfig = {
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
-      frameSrc: ["'none'"],
-      objectSrc: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"],
-      frameAncestors: ["'none'"],
-      upgradeInsecureRequests: [],
-    },
+      defaultSrc: ['\'self\''],
+      styleSrc: ['\'self\'', '\'unsafe-inline\''],
+      scriptSrc: ['\'self\''],
+      imgSrc: ['\'self\'', 'data:', 'blob:'],
+      connectSrc: ['\'self\''],
+      fontSrc: ['\'self\''],
+      frameSrc: ['\'none\''],
+      objectSrc: ['\'none\''],
+      baseUri: ['\'self\''],
+      formAction: ['\'self\''],
+      frameAncestors: ['\'none\''],
+      upgradeInsecureRequests: []
+    }
   },
-  crossOriginEmbedderPolicy: { policy: "require-corp" },
-  crossOriginOpenerPolicy: { policy: "same-origin" },
-  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: { policy: 'require-corp' },
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
   dnsPrefetchControl: { allow: false },
   frameguard: { action: 'deny' },
   hidePoweredBy: true,
@@ -196,16 +198,16 @@ const helmetConfig = {
   noSniff: true,
   originAgentCluster: true,
   permittedCrossDomainPolicies: false,
-  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-  xssFilter: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  xssFilter: true
 };
 
 // Request sanitization
-const sanitizeRequest = (req, res, next) => {
+const sanitizeRequest = (req, res, _next) => {
   // Remove any potential NoSQL injection
   mongoSanitize()(req, res, () => {
     // Remove HTTP Parameter Pollution
-    hpp()(req, res, next);
+    hpp()(req, res, _next);
   });
 };
 
@@ -218,7 +220,7 @@ const securityLogger = (req, res, next) => {
     /javascript:/i,
     /vbscript:/i,
     /onload=/i,
-    /onerror=/i,
+    /onerror=/i
   ];
 
   const userAgent = req.get('User-Agent') || '';

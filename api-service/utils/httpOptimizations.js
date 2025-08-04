@@ -20,13 +20,13 @@ class HttpOptimizer {
   initialize() {
     // Configure HTTP Keep-Alive agents
     this.setupKeepAliveAgents();
-    
+
     // Configure compression middleware
     this.setupCompression();
-    
+
     // Setup connection monitoring
     this.setupConnectionMonitoring();
-    
+
     logger.info('HTTP optimizations initialized', {
       keepAlive: true,
       compression: true,
@@ -70,9 +70,9 @@ class HttpOptimizer {
     agent.createConnection = (...args) => {
       this.connectionStats.createdSockets++;
       this.connectionStats.activeConnections++;
-      
+
       const socket = originalCreateConnection.apply(agent, args);
-      
+
       socket.on('close', () => {
         this.connectionStats.destroyedSockets++;
         this.connectionStats.activeConnections--;
@@ -101,7 +101,7 @@ class HttpOptimizer {
       threshold: parseInt(process.env.COMPRESSION_THRESHOLD || '1024'), // Only compress if > 1KB
       memLevel: parseInt(process.env.COMPRESSION_MEM_LEVEL || '8'), // Memory usage level
       chunkSize: parseInt(process.env.COMPRESSION_CHUNK_SIZE || '16384'), // 16KB chunks
-      
+
       // Compression filter function
       filter: (req, res) => {
         // Don't compress if client doesn't support it
@@ -125,7 +125,7 @@ class HttpOptimizer {
             'application/zip',
             'application/gzip'
           ];
-          
+
           if (binaryTypes.some(type => contentType.includes(type))) {
             return false;
           }
@@ -172,7 +172,7 @@ class HttpOptimizer {
 
   checkForConnectionLeaks() {
     const maxConnections = parseInt(process.env.HTTP_MAX_SOCKETS || '50') * 2; // HTTP + HTTPS
-    
+
     if (this.connectionStats.activeConnections > maxConnections) {
       logger.warn('Potential connection leak detected', {
         activeConnections: this.connectionStats.activeConnections,
@@ -209,10 +209,10 @@ class HttpOptimizer {
     app.use((req, res, next) => {
       // Set response timeout
       res.timeout(parseInt(process.env.RESPONSE_TIMEOUT || '30000'));
-      
+
       // Set keep-alive timeout
       res.setHeader('Keep-Alive', `timeout=${parseInt(process.env.KEEP_ALIVE_TIMEOUT || '5')}, max=100`);
-      
+
       next();
     });
 
@@ -222,7 +222,7 @@ class HttpOptimizer {
     // Add performance headers
     app.use((req, res, next) => {
       const startTime = Date.now();
-      
+
       res.on('finish', () => {
         const duration = Date.now() - startTime;
         res.setHeader('X-Response-Time', `${duration}ms`);
@@ -247,28 +247,28 @@ class HttpOptimizer {
     // Configure socket behavior
     server.on('connection', (socket) => {
       this.connectionStats.totalConnections++;
-      
+
       // Set socket timeout
       socket.setTimeout(parseInt(process.env.SOCKET_TIMEOUT || '60000'));
-      
+
       // Set TCP keep-alive
       socket.setKeepAlive(true, parseInt(process.env.TCP_KEEP_ALIVE || '30000'));
-      
+
       // Set no delay for better performance
       socket.setNoDelay(true);
 
       socket.on('timeout', () => {
-        logger.warn('Socket timeout', { 
+        logger.warn('Socket timeout', {
           remoteAddress: socket.remoteAddress,
-          remotePort: socket.remotePort 
+          remotePort: socket.remotePort
         });
         socket.destroy();
       });
 
       socket.on('error', (error) => {
-        logger.error('Socket error', { 
+        logger.error('Socket error', {
           error: error.message,
-          remoteAddress: socket.remoteAddress 
+          remoteAddress: socket.remoteAddress
         });
       });
     });
@@ -280,11 +280,11 @@ class HttpOptimizer {
 
     // Handle client errors
     server.on('clientError', (error, socket) => {
-      logger.warn('Client error', { 
+      logger.warn('Client error', {
         error: error.message,
-        remoteAddress: socket.remoteAddress 
+        remoteAddress: socket.remoteAddress
       });
-      
+
       if (socket.writable) {
         socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
       }
@@ -321,7 +321,7 @@ class HttpOptimizer {
       // Destroy all connections
       this.keepAliveAgent.destroy();
       this.httpsKeepAliveAgent.destroy();
-      
+
       logger.info('HTTP connections cleaned up');
     } catch (error) {
       logger.error('Error cleaning up HTTP connections', { error: error.message });

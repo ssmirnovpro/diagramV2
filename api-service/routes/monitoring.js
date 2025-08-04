@@ -1,5 +1,5 @@
 const express = require('express');
-const { query, validationResult } = require('express-validator');
+const { query /* validationResult */ } = require('express-validator');
 const { logger } = require('../utils/logger');
 const { advancedMonitoring } = require('../utils/advancedMonitoring');
 const { databaseManager } = require('../utils/database');
@@ -13,12 +13,12 @@ const router = express.Router();
 router.get('/dashboard', async (req, res, next) => {
   try {
     const dashboardData = advancedMonitoring.getDashboardData();
-    
+
     // Add real-time component data
     dashboardData.cache = cacheManager.isConnected ? cacheManager.getCacheStats() : null;
     dashboardData.queue = queueManager.isInitialized ? await queueManager.getQueueStats() : null;
     dashboardData.webhooks = webhookManager.getStats();
-    
+
     res.json({
       timestamp: new Date().toISOString(),
       ...dashboardData
@@ -49,9 +49,9 @@ router.get('/performance',
   async (req, res, next) => {
     try {
       const { period = '24h', metric } = req.query;
-      
+
       const performanceData = await getPerformanceMetrics(period, metric);
-      
+
       res.json({
         period,
         metric,
@@ -89,13 +89,13 @@ router.get('/analytics',
   async (req, res, next) => {
     try {
       const { startDate, endDate, groupBy = 'day' } = req.query;
-      
+
       // Default to last 7 days if no dates provided
       const end = endDate ? new Date(endDate) : new Date();
       const start = startDate ? new Date(startDate) : new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
 
       const analytics = await getBusinessAnalytics(start, end, groupBy);
-      
+
       res.json({
         period: {
           start: start.toISOString(),
@@ -211,7 +211,7 @@ router.get('/alerts',
   (req, res) => {
     try {
       const { severity, type, limit = 50 } = req.query;
-      
+
       const dashboardData = advancedMonitoring.getDashboardData();
       let alerts = dashboardData.alerts.recent;
 
@@ -248,7 +248,7 @@ router.get('/alerts',
 router.get('/metrics/custom', async (req, res, next) => {
   try {
     const metrics = await advancedMonitoring.getMetrics();
-    
+
     res.set('Content-Type', 'text/plain');
     res.send(metrics);
 
@@ -322,7 +322,7 @@ async function getPerformanceMetrics(period, metric) {
     let query;
     if (metric) {
       query = `
-        SELECT 
+        SELECT
           DATE_TRUNC('hour', created_at) as hour,
           AVG(response_time_ms) as avg_response_time,
           COUNT(*) as request_count,
@@ -334,7 +334,7 @@ async function getPerformanceMetrics(period, metric) {
       `;
     } else {
       query = `
-        SELECT 
+        SELECT
           DATE_TRUNC('hour', created_at) as hour,
           AVG(response_time_ms) as avg_response_time,
           COUNT(*) as request_count,
@@ -348,7 +348,7 @@ async function getPerformanceMetrics(period, metric) {
     }
 
     const result = await databaseManager.pool.query(query);
-    
+
     return result.rows.map(row => ({
       timestamp: row.hour,
       averageResponseTime: parseFloat(row.avg_response_time) || 0,
@@ -377,7 +377,7 @@ async function getBusinessAnalytics(startDate, endDate, groupBy) {
     }[groupBy];
 
     const diagramsQuery = `
-      SELECT 
+      SELECT
         DATE_TRUNC('${truncateFunc}', created_at) as period,
         diagram_type,
         format,
@@ -391,7 +391,7 @@ async function getBusinessAnalytics(startDate, endDate, groupBy) {
     `;
 
     const usageQuery = `
-      SELECT 
+      SELECT
         DATE_TRUNC('${truncateFunc}', created_at) as period,
         COUNT(*) as total_requests,
         COUNT(DISTINCT ip_address) as unique_users,
@@ -425,10 +425,18 @@ async function getBusinessAnalytics(startDate, endDate, groupBy) {
 }
 
 function getHealthStatus(score) {
-  if (score >= 90) return 'excellent';
-  if (score >= 75) return 'good';
-  if (score >= 50) return 'fair';
-  if (score >= 25) return 'poor';
+  if (score >= 90) {
+    return 'excellent';
+  }
+  if (score >= 75) {
+    return 'good';
+  }
+  if (score >= 50) {
+    return 'fair';
+  }
+  if (score >= 25) {
+    return 'poor';
+  }
   return 'critical';
 }
 

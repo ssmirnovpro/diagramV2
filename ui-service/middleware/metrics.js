@@ -67,52 +67,62 @@ register.registerMetric(userSessions);
 // Middleware to collect HTTP metrics
 const collectHttpMetrics = (req, res, next) => {
   const start = Date.now();
-  
+
   // Track active connections
   activeConnections.inc();
-  
+
   res.on('finish', () => {
     const duration = (Date.now() - start) / 1000;
     const route = req.route ? req.route.path : req.path;
     const method = req.method;
     const status = res.statusCode.toString();
-    
+
     // Record metrics
     httpRequestDuration
       .labels(method, route, status)
       .observe(duration);
-    
+
     httpRequestsTotal
       .labels(method, route, status)
       .inc();
-    
+
     // Track static asset requests
     if (req.path.match(/\.(css|js|png|jpg|jpeg|gif|ico|svg)$/)) {
       const assetType = req.path.split('.').pop();
       staticAssetRequests.labels(assetType, status).inc();
     }
-    
+
     // Track page views
     if (req.path === '/' || req.path.endsWith('.html')) {
       const userAgent = req.get('User-Agent') || 'unknown';
       const userAgentFamily = getUserAgentFamily(userAgent);
       pageViews.labels(req.path, userAgentFamily).inc();
     }
-    
+
     // Decrease active connections
     activeConnections.dec();
   });
-  
+
   next();
 };
 
 // Helper function to extract user agent family
 const getUserAgentFamily = (userAgent) => {
-  if (userAgent.includes('Chrome')) return 'Chrome';
-  if (userAgent.includes('Firefox')) return 'Firefox';
-  if (userAgent.includes('Safari')) return 'Safari';
-  if (userAgent.includes('Edge')) return 'Edge';
-  if (userAgent.includes('Opera')) return 'Opera';
+  if (userAgent.includes('Chrome')) {
+    return 'Chrome';
+  }
+  if (userAgent.includes('Firefox')) {
+    return 'Firefox';
+  }
+  if (userAgent.includes('Safari')) {
+    return 'Safari';
+  }
+  if (userAgent.includes('Edge')) {
+    return 'Edge';
+  }
+  if (userAgent.includes('Opera')) {
+    return 'Opera';
+  }
   return 'Other';
 };
 

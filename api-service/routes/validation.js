@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, validationResult } = require('express-validator');
+const { body /* validationResult */ } = require('express-validator');
 const { generateRateLimit, handleValidationErrors } = require('../middleware/security');
 const { logger } = require('../utils/logger');
 const { advancedValidator } = require('../utils/advancedValidator');
@@ -30,7 +30,7 @@ router.post('/validate',
   handleValidationErrors,
   async (req, res, next) => {
     const startTime = Date.now();
-    
+
     try {
       const {
         uml,
@@ -86,7 +86,7 @@ router.post('/validate',
 
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
       logger.error('Validation error', {
         error: error.message,
         ip: req.ip,
@@ -108,7 +108,7 @@ router.post('/validate',
 router.get('/validate/stats', (req, res) => {
   try {
     const stats = advancedValidator.getValidationStats();
-    
+
     res.json({
       timestamp: new Date().toISOString(),
       validation: stats,

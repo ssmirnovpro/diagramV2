@@ -18,7 +18,7 @@ const STATIC_RESOURCES = [
 // Install event - cache static resources
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing service worker...');
-  
+
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => {
@@ -38,7 +38,7 @@ self.addEventListener('install', (event) => {
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
   console.log('[SW] Activating service worker...');
-  
+
   event.waitUntil(
     caches.keys()
       .then((cacheNames) => {
@@ -62,17 +62,17 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-  
+
   // Skip non-GET requests
   if (request.method !== 'GET') {
     return;
   }
-  
+
   // Skip external requests (except fonts)
   if (!url.origin.includes(self.location.origin) && !url.hostname.includes('fonts.googleapis.com') && !url.hostname.includes('fonts.gstatic.com')) {
     return;
   }
-  
+
   // Handle different types of requests
   if (isStaticResource(request)) {
     event.respondWith(cacheFirst(request));
@@ -90,13 +90,13 @@ async function cacheFirst(request) {
     if (cachedResponse) {
       return cachedResponse;
     }
-    
+
     const networkResponse = await fetch(request);
     if (networkResponse.status === 200) {
       const cache = await caches.open(STATIC_CACHE);
       cache.put(request, networkResponse.clone());
     }
-    
+
     return networkResponse;
   } catch (error) {
     console.error('[SW] Cache first failed:', error);
@@ -107,12 +107,12 @@ async function cacheFirst(request) {
 async function networkFirst(request) {
   try {
     const networkResponse = await fetch(request);
-    
+
     if (networkResponse.status === 200) {
       const cache = await caches.open(RUNTIME_CACHE);
       cache.put(request, networkResponse.clone());
     }
-    
+
     return networkResponse;
   } catch (error) {
     console.log('[SW] Network failed, trying cache:', error);
@@ -120,7 +120,7 @@ async function networkFirst(request) {
     if (cachedResponse) {
       return cachedResponse;
     }
-    
+
     return getOfflineFallback(request);
   }
 }
@@ -129,14 +129,14 @@ async function staleWhileRevalidate(request) {
   try {
     const cache = await caches.open(RUNTIME_CACHE);
     const cachedResponse = await cache.match(request);
-    
+
     const fetchPromise = fetch(request).then((networkResponse) => {
       if (networkResponse.status === 200) {
         cache.put(request, networkResponse.clone());
       }
       return networkResponse;
     });
-    
+
     return cachedResponse || fetchPromise;
   } catch (error) {
     console.error('[SW] Stale while revalidate failed:', error);
@@ -164,13 +164,13 @@ function isAPIRequest(request) {
 
 async function getOfflineFallback(request) {
   const url = new URL(request.url);
-  
+
   // Return offline page for navigation requests
   if (request.destination === 'document') {
     const cache = await caches.open(STATIC_CACHE);
     return cache.match('/');
   }
-  
+
   // Return placeholder for images
   if (request.destination === 'image') {
     return new Response(
@@ -185,12 +185,12 @@ async function getOfflineFallback(request) {
       </svg>`,
       {
         headers: {
-          'Content-Type': 'image/svg+xml',
-        },
+          'Content-Type': 'image/svg+xml'
+        }
       }
     );
   }
-  
+
   // Return generic offline response
   return new Response(
     JSON.stringify({
@@ -200,8 +200,8 @@ async function getOfflineFallback(request) {
     {
       status: 503,
       headers: {
-        'Content-Type': 'application/json',
-      },
+        'Content-Type': 'application/json'
+      }
     }
   );
 }
@@ -217,7 +217,7 @@ async function syncDiagrams() {
   try {
     // Get failed diagram requests from IndexedDB
     const failedRequests = await getFailedRequests();
-    
+
     for (const request of failedRequests) {
       try {
         const response = await fetch(request.url, {
@@ -225,11 +225,11 @@ async function syncDiagrams() {
           headers: request.headers,
           body: request.body
         });
-        
+
         if (response.ok) {
           // Remove from failed requests
           await removeFailedRequest(request.id);
-          
+
           // Notify client of successful sync
           await notifyClient('diagram-synced', {
             id: request.id,
@@ -247,8 +247,10 @@ async function syncDiagrams() {
 
 // Push notifications (for future use)
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
-  
+  if (!event.data) {
+    return;
+  }
+
   const data = event.data.json();
   const options = {
     body: data.body || 'UML diagram is ready!',
@@ -267,7 +269,7 @@ self.addEventListener('push', (event) => {
       }
     ]
   };
-  
+
   event.waitUntil(
     self.registration.showNotification(data.title || 'UML Service', options)
   );
@@ -276,7 +278,7 @@ self.addEventListener('push', (event) => {
 // Notification click handler
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  
+
   if (event.action === 'view') {
     event.waitUntil(
       clients.openWindow('/')
@@ -287,25 +289,25 @@ self.addEventListener('notificationclick', (event) => {
 // Message handler for client communication
 self.addEventListener('message', (event) => {
   const { type, payload } = event.data;
-  
+
   switch (type) {
-    case 'SKIP_WAITING':
-      self.skipWaiting();
-      break;
-      
-    case 'GET_VERSION':
-      event.ports[0].postMessage({
-        type: 'VERSION',
-        version: CACHE_NAME
-      });
-      break;
-      
-    case 'CACHE_DIAGRAM':
-      cacheDiagram(payload);
-      break;
-      
-    default:
-      console.log('[SW] Unknown message type:', type);
+  case 'SKIP_WAITING':
+    self.skipWaiting();
+    break;
+
+  case 'GET_VERSION':
+    event.ports[0].postMessage({
+      type: 'VERSION',
+      version: CACHE_NAME
+    });
+    break;
+
+  case 'CACHE_DIAGRAM':
+    cacheDiagram(payload);
+    break;
+
+  default:
+    console.log('[SW] Unknown message type:', type);
   }
 });
 
@@ -335,7 +337,7 @@ async function cacheDiagram(payload) {
         'Content-Type': 'image/png'
       }
     });
-    
+
     await cache.put(`/diagram/${payload.id}`, response);
     console.log('[SW] Diagram cached successfully');
   } catch (error) {

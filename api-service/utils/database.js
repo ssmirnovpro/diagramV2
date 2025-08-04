@@ -29,13 +29,13 @@ class DatabaseManager {
       client.release();
 
       this.isConnected = true;
-      
+
       // Setup event listeners
-      this.pool.on('connect', (client) => {
+      this.pool.on('connect', (_client) => {
         logger.debug('Database client connected');
       });
 
-      this.pool.on('error', (err, client) => {
+      this.pool.on('error', (err, _client) => {
         logger.error('Database pool error', { error: err.message });
       });
 
@@ -56,7 +56,7 @@ class DatabaseManager {
 
   async initializeSchema() {
     const client = await this.pool.connect();
-    
+
     try {
       await client.query('BEGIN');
 
@@ -188,23 +188,23 @@ class DatabaseManager {
         CREATE INDEX IF NOT EXISTS idx_diagrams_user_id ON diagrams(user_id);
         CREATE INDEX IF NOT EXISTS idx_diagrams_created_at ON diagrams(created_at);
         CREATE INDEX IF NOT EXISTS idx_diagrams_type_format ON diagrams(diagram_type, format);
-        
+
         CREATE INDEX IF NOT EXISTS idx_api_requests_user_id ON api_requests(user_id);
         CREATE INDEX IF NOT EXISTS idx_api_requests_created_at ON api_requests(created_at);
         CREATE INDEX IF NOT EXISTS idx_api_requests_endpoint ON api_requests(endpoint);
         CREATE INDEX IF NOT EXISTS idx_api_requests_status ON api_requests(status_code);
-        
+
         CREATE INDEX IF NOT EXISTS idx_queue_jobs_job_id ON queue_jobs(job_id);
         CREATE INDEX IF NOT EXISTS idx_queue_jobs_status ON queue_jobs(status);
         CREATE INDEX IF NOT EXISTS idx_queue_jobs_queue_name ON queue_jobs(queue_name);
         CREATE INDEX IF NOT EXISTS idx_queue_jobs_created_at ON queue_jobs(created_at);
-        
+
         CREATE INDEX IF NOT EXISTS idx_analytics_date_hour ON analytics(date, hour);
         CREATE INDEX IF NOT EXISTS idx_analytics_metric_name ON analytics(metric_name);
-        
+
         CREATE INDEX IF NOT EXISTS idx_rate_limits_identifier ON rate_limits(identifier);
         CREATE INDEX IF NOT EXISTS idx_rate_limits_expires_at ON rate_limits(expires_at);
-        
+
         CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_url ON webhook_deliveries(url);
         CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_event_type ON webhook_deliveries(event_type);
         CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_status ON webhook_deliveries(status);
@@ -251,7 +251,7 @@ class DatabaseManager {
       VALUES ($1, $2, $3)
       RETURNING id, username, email, created_at
     `;
-    
+
     try {
       const result = await this.pool.query(query, [username, email, apiKey]);
       logger.info('User created', { userId: result.rows[0].id, username });
@@ -268,7 +268,7 @@ class DatabaseManager {
       FROM users
       WHERE api_key = $1 AND is_active = true
     `;
-    
+
     try {
       const result = await this.pool.query(query, [apiKey]);
       return result.rows[0] || null;
@@ -284,7 +284,7 @@ class DatabaseManager {
       FROM users
       WHERE id = $1
     `;
-    
+
     try {
       const result = await this.pool.query(query, [userId]);
       return result.rows[0] || null;
@@ -328,7 +328,7 @@ class DatabaseManager {
         sizeBytes, generationTimeMs, cacheKey, JSON.stringify(metadata),
         ipAddress, userAgent
       ]);
-      
+
       return result.rows[0];
     } catch (error) {
       logger.error('Failed to store diagram', { error: error.message, diagramHash });
@@ -341,7 +341,7 @@ class DatabaseManager {
       SELECT * FROM diagrams
       WHERE diagram_hash = $1
     `;
-    
+
     try {
       const result = await this.pool.query(query, [diagramHash]);
       return result.rows[0] || null;
@@ -360,7 +360,7 @@ class DatabaseManager {
       ORDER BY last_accessed DESC
       LIMIT $2 OFFSET $3
     `;
-    
+
     try {
       const result = await this.pool.query(query, [userId, limit, offset]);
       return result.rows;
@@ -401,7 +401,7 @@ class DatabaseManager {
         responseTimeMs, ipAddress, userAgent,
         requestSizeBytes, responseSizeBytes, JSON.stringify(metadata)
       ]);
-      
+
       return result.rows[0].id;
     } catch (error) {
       logger.error('Failed to log API request', { error: error.message });
@@ -434,7 +434,7 @@ class DatabaseManager {
         jobId, queueName, userId, jobType, priority,
         JSON.stringify(payload), JSON.stringify(metadata)
       ]);
-      
+
       return result.rows[0].id;
     } catch (error) {
       logger.error('Failed to create queue job', { error: error.message, jobId });
@@ -513,7 +513,7 @@ class DatabaseManager {
       const result = await this.pool.query(query, [
         metricName, startDate, endDate, JSON.stringify(dimensions)
       ]);
-      
+
       return result.rows;
     } catch (error) {
       logger.error('Failed to get analytics', { error: error.message, metricName });
@@ -524,7 +524,7 @@ class DatabaseManager {
   // Health check
   async healthCheck() {
     try {
-      const result = await this.pool.query('SELECT 1 as healthy');
+      await this.pool.query('SELECT 1 as healthy');
       return {
         healthy: true,
         connections: {
@@ -544,7 +544,7 @@ class DatabaseManager {
   // Cleanup old records
   async cleanup() {
     const client = await this.pool.connect();
-    
+
     try {
       await client.query('BEGIN');
 

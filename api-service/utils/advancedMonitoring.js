@@ -175,7 +175,9 @@ class AdvancedMonitoring {
   }
 
   initialize() {
-    if (this.isInitialized) return;
+    if (this.isInitialized) {
+      return;
+    }
 
     // Start monitoring intervals
     this.startMetricsCollection();
@@ -209,7 +211,9 @@ class AdvancedMonitoring {
 
   async collectBusinessMetrics() {
     try {
-      if (!databaseManager.isConnected) return;
+      if (!databaseManager.isConnected) {
+        return;
+      }
 
       // Get diagram generation rate
       const generationRate = await this.getDiagramGenerationRate();
@@ -313,17 +317,17 @@ class AdvancedMonitoring {
       try {
         const result = await healthCheck.check();
         const isHealthy = result.healthy !== false;
-        
+
         healthCheck.lastResult = result;
         healthCheck.lastCheck = new Date();
-        
+
         if (isHealthy) {
           healthCheck.consecutiveFailures = 0;
           this.customMetrics.dependencyHealth.labels(name).set(1);
         } else {
           healthCheck.consecutiveFailures++;
           this.customMetrics.dependencyHealth.labels(name).set(0);
-          
+
           // Send alert after 3 consecutive failures
           if (healthCheck.consecutiveFailures >= 3) {
             await this.sendHealthAlert(name, result);
@@ -333,7 +337,7 @@ class AdvancedMonitoring {
       } catch (error) {
         logger.error(`Health check failed for ${name}`, { error: error.message });
         this.customMetrics.dependencyHealth.labels(name).set(0);
-        
+
         healthCheck.consecutiveFailures++;
         if (healthCheck.consecutiveFailures >= 3) {
           await this.sendHealthAlert(name, { error: error.message, healthy: false });
@@ -387,8 +391,8 @@ class AdvancedMonitoring {
   async sendAlert(alertData) {
     try {
       // Prevent duplicate alerts within 15 minutes
-      const recentAlert = this.alertHistory.find(a => 
-        a.type === alertData.type && 
+      const recentAlert = this.alertHistory.find(a =>
+        a.type === alertData.type &&
         Date.now() - a.timestamp < 15 * 60 * 1000
       );
 
@@ -423,15 +427,17 @@ class AdvancedMonitoring {
 
   // Utility methods for metrics collection
   async getDiagramGenerationRate() {
-    if (!databaseManager.isConnected) return 0;
-    
+    if (!databaseManager.isConnected) {
+      return 0;
+    }
+
     try {
       const query = `
         SELECT COUNT(*) as count
         FROM diagrams
         WHERE created_at >= NOW() - INTERVAL '1 minute'
       `;
-      
+
       const result = await databaseManager.pool.query(query);
       return parseInt(result.rows[0]?.count || 0);
     } catch (error) {
@@ -440,15 +446,17 @@ class AdvancedMonitoring {
   }
 
   async getActiveUsersCount() {
-    if (!databaseManager.isConnected) return 0;
-    
+    if (!databaseManager.isConnected) {
+      return 0;
+    }
+
     try {
       const query = `
         SELECT COUNT(DISTINCT ip_address) as count
         FROM api_requests
         WHERE created_at >= NOW() - INTERVAL '1 hour'
       `;
-      
+
       const result = await databaseManager.pool.query(query);
       return parseInt(result.rows[0]?.count || 0);
     } catch (error) {
@@ -457,8 +465,10 @@ class AdvancedMonitoring {
   }
 
   async getPopularDiagramTypes() {
-    if (!databaseManager.isConnected) return {};
-    
+    if (!databaseManager.isConnected) {
+      return {};
+    }
+
     try {
       const query = `
         SELECT diagram_type, COUNT(*) as count
@@ -468,7 +478,7 @@ class AdvancedMonitoring {
         ORDER BY count DESC
         LIMIT 10
       `;
-      
+
       const result = await databaseManager.pool.query(query);
       return result.rows.reduce((acc, row) => {
         acc[row.diagram_type] = parseInt(row.count);
@@ -504,7 +514,9 @@ class AdvancedMonitoring {
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
     this.memoryHistory = this.memoryHistory.filter(m => m.timestamp > oneHourAgo);
 
-    if (this.memoryHistory.length < 10) return 0;
+    if (this.memoryHistory.length < 10) {
+      return 0;
+    }
 
     // Calculate trend
     const first = this.memoryHistory[0];
@@ -518,24 +530,36 @@ class AdvancedMonitoring {
   calculateSystemHealthScore() {
     let score = 100;
     const memUsage = process.memoryUsage();
-    
+
     // Memory health (0-20 points)
     const memoryPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
-    if (memoryPercent > 80) score -= 20;
-    else if (memoryPercent > 60) score -= 10;
-    else if (memoryPercent > 40) score -= 5;
+    if (memoryPercent > 80) {
+      score -= 20;
+    } else if (memoryPercent > 60) {
+      score -= 10;
+    } else if (memoryPercent > 40) {
+      score -= 5;
+    }
 
     // Error rate health (0-30 points)
     const errorRate = this.getRecentErrorRate();
-    if (errorRate > 10) score -= 30;
-    else if (errorRate > 5) score -= 20;
-    else if (errorRate > 2) score -= 10;
+    if (errorRate > 10) {
+      score -= 30;
+    } else if (errorRate > 5) {
+      score -= 20;
+    } else if (errorRate > 2) {
+      score -= 10;
+    }
 
     // Response time health (0-20 points)
     const avgResponseTime = this.getAverageResponseTime();
-    if (avgResponseTime > 5000) score -= 20;
-    else if (avgResponseTime > 2000) score -= 10;
-    else if (avgResponseTime > 1000) score -= 5;
+    if (avgResponseTime > 5000) {
+      score -= 20;
+    } else if (avgResponseTime > 2000) {
+      score -= 10;
+    } else if (avgResponseTime > 1000) {
+      score -= 5;
+    }
 
     // Dependency health (0-20 points)
     const unhealthyDeps = Array.from(this.healthChecks.values())
@@ -544,8 +568,11 @@ class AdvancedMonitoring {
 
     // Queue health (0-10 points)
     const queueDepth = this.getCurrentQueueDepth();
-    if (queueDepth > 100) score -= 10;
-    else if (queueDepth > 50) score -= 5;
+    if (queueDepth > 100) {
+      score -= 10;
+    } else if (queueDepth > 50) {
+      score -= 5;
+    }
 
     return Math.max(score, 0);
   }
@@ -553,11 +580,13 @@ class AdvancedMonitoring {
   calculateCacheEfficiencyScore() {
     // This would integrate with your cache manager
     const cacheStats = global.cacheManager?.getCacheStats();
-    if (!cacheStats) return 0;
+    if (!cacheStats) {
+      return 0;
+    }
 
     const hitRatio = cacheStats.hitRatio || 0;
     const responseTimeImprovement = this.calculateCacheResponseTimeImprovement();
-    
+
     // Combine hit ratio and performance improvement
     return (hitRatio * 0.7) + (responseTimeImprovement * 0.3);
   }
@@ -592,7 +621,7 @@ class AdvancedMonitoring {
   checkMemoryUsage() {
     const memUsage = process.memoryUsage();
     const memoryPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
-    
+
     if (memoryPercent > this.alertThresholds.memoryUsage) {
       return {
         type: 'high_memory_usage',
@@ -607,7 +636,9 @@ class AdvancedMonitoring {
   // Additional utility methods
   getRecentErrorRate() {
     const httpRequestsMetric = this.register.getSingleMetric('http_requests_total');
-    if (!httpRequestsMetric) return 0;
+    if (!httpRequestsMetric) {
+      return 0;
+    }
 
     const metrics = httpRequestsMetric.get();
     let totalRequests = 0;
@@ -626,11 +657,15 @@ class AdvancedMonitoring {
 
   getAverageResponseTime() {
     const responseTimeMetric = this.register.getSingleMetric('http_request_duration_seconds');
-    if (!responseTimeMetric) return 0;
+    if (!responseTimeMetric) {
+      return 0;
+    }
 
     // This is a simplified calculation - in practice you'd want to use histogram buckets
     const metrics = responseTimeMetric.get();
-    if (metrics.values.length === 0) return 0;
+    if (metrics.values.length === 0) {
+      return 0;
+    }
 
     const totalTime = metrics.values.reduce((sum, metric) => sum + metric.value, 0);
     return (totalTime / metrics.values.length) * 1000; // Convert to ms

@@ -11,7 +11,7 @@ class WebhookManager {
       failed: 0,
       retried: 0
     };
-    
+
     this.defaultTimeout = parseInt(process.env.WEBHOOK_TIMEOUT || '30000');
     this.maxRetries = parseInt(process.env.WEBHOOK_MAX_RETRIES || '3');
     this.retryDelays = [1000, 5000, 15000]; // Progressive delays
@@ -39,7 +39,7 @@ class WebhookManager {
   }
 
   // Send webhook with retry logic
-  async sendWebhook(webhookData, options = {}) {
+  async sendWebhook(webhookData, _options = {}) {
     const {
       url,
       payload,
@@ -52,7 +52,7 @@ class WebhookManager {
 
     const requestId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
-    
+
     // Prepare webhook payload with metadata
     const webhookPayload = {
       event: eventType,
@@ -82,7 +82,7 @@ class WebhookManager {
     while (attempt <= retries) {
       try {
         this.webhookStats.sent++;
-        
+
         logger.info('Sending webhook', {
           url,
           eventType,
@@ -99,7 +99,7 @@ class WebhookManager {
         });
 
         this.webhookStats.successful++;
-        
+
         logger.info('Webhook delivered successfully', {
           url,
           eventType,
@@ -131,7 +131,7 @@ class WebhookManager {
       } catch (error) {
         lastError = error;
         this.webhookStats.failed++;
-        
+
         const isRetryable = this.isRetryableError(error);
         const hasMoreRetries = attempt < retries;
 
@@ -149,7 +149,7 @@ class WebhookManager {
         if (isRetryable && hasMoreRetries) {
           this.webhookStats.retried++;
           attempt++;
-          
+
           // Progressive delay
           const delay = this.retryDelays[Math.min(attempt - 1, this.retryDelays.length - 1)];
           logger.info('Retrying webhook delivery', {
@@ -158,7 +158,7 @@ class WebhookManager {
             nextAttempt: attempt + 1,
             delayMs: delay
           });
-          
+
           await this.sleep(delay);
         } else {
           break;
@@ -201,8 +201,8 @@ class WebhookManager {
   // Check if error is retryable
   isRetryableError(error) {
     // Network errors are retryable
-    if (error.code === 'ECONNREFUSED' || 
-        error.code === 'ENOTFOUND' || 
+    if (error.code === 'ECONNREFUSED' ||
+        error.code === 'ENOTFOUND' ||
         error.code === 'ECONNABORTED' ||
         error.code === 'ETIMEDOUT') {
       return true;
@@ -219,7 +219,9 @@ class WebhookManager {
 
   // Send diagram completion webhook
   async sendDiagramCompletionWebhook(jobData, result) {
-    if (!jobData.webhookUrl) return null;
+    if (!jobData.webhookUrl) {
+      return null;
+    }
 
     const payload = {
       jobId: jobData.requestId,
@@ -253,7 +255,9 @@ class WebhookManager {
 
   // Send batch completion webhook
   async sendBatchCompletionWebhook(batchData, results) {
-    if (!batchData.webhookUrl) return null;
+    if (!batchData.webhookUrl) {
+      return null;
+    }
 
     const summary = results.summary || {
       total: batchData.requests?.length || 0,
@@ -291,7 +295,9 @@ class WebhookManager {
 
   // Send validation webhook
   async sendValidationWebhook(validationData, result) {
-    if (!validationData.webhookUrl) return null;
+    if (!validationData.webhookUrl) {
+      return null;
+    }
 
     const payload = {
       validationId: validationData.validationId,
@@ -318,7 +324,9 @@ class WebhookManager {
   // Send system alert webhook
   async sendSystemAlert(alertData) {
     const webhookUrls = this.getSystemAlertWebhooks();
-    if (webhookUrls.length === 0) return [];
+    if (webhookUrls.length === 0) {
+      return [];
+    }
 
     const payload = {
       alertType: alertData.type,
@@ -344,22 +352,26 @@ class WebhookManager {
     return results.map((result, index) => ({
       url: webhookUrls[index],
       success: result.status === 'fulfilled' && result.value.success,
-      error: result.status === 'rejected' ? result.reason.message : 
-             (result.value.success ? null : result.value.error)
+      error: result.status === 'rejected' ? result.reason.message :
+        (result.value.success ? null : result.value.error)
     }));
   }
 
   // Get system alert webhook URLs from configuration
   getSystemAlertWebhooks() {
     const webhookUrls = process.env.SYSTEM_ALERT_WEBHOOKS;
-    if (!webhookUrls) return [];
-    
+    if (!webhookUrls) {
+      return [];
+    }
+
     return webhookUrls.split(',').map(url => url.trim()).filter(url => url);
   }
 
   // Log webhook delivery to database
   async logWebhookDelivery(deliveryData) {
-    if (!databaseManager.isConnected) return;
+    if (!databaseManager.isConnected) {
+      return;
+    }
 
     try {
       const query = `
@@ -382,9 +394,9 @@ class WebhookManager {
         new Date()
       ]);
     } catch (error) {
-      logger.error('Failed to log webhook delivery', { 
+      logger.error('Failed to log webhook delivery', {
         error: error.message,
-        requestId: deliveryData.requestId 
+        requestId: deliveryData.requestId
       });
     }
   }
@@ -397,7 +409,7 @@ class WebhookManager {
 
     try {
       const query = `
-        SELECT 
+        SELECT
           status,
           COUNT(*) as count,
           AVG(attempts) as avg_attempts,
@@ -408,7 +420,7 @@ class WebhookManager {
       `;
 
       const result = await databaseManager.pool.query(query, [startDate, endDate]);
-      
+
       const stats = {
         ...this.webhookStats,
         database: result.rows.reduce((acc, row) => {
@@ -432,21 +444,21 @@ class WebhookManager {
   isValidWebhookUrl(url) {
     try {
       const parsed = new URL(url);
-      
+
       // Must be HTTP or HTTPS
       if (!['http:', 'https:'].includes(parsed.protocol)) {
         return false;
       }
-      
+
       // Reject localhost and private IPs in production
       if (process.env.NODE_ENV === 'production') {
         const hostname = parsed.hostname;
-        
+
         // Reject localhost
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
           return false;
         }
-        
+
         // Reject private IP ranges
         const privateRanges = [
           /^10\./,
@@ -454,12 +466,12 @@ class WebhookManager {
           /^192\.168\./,
           /^169\.254\./
         ];
-        
+
         if (privateRanges.some(range => range.test(hostname))) {
           return false;
         }
       }
-      
+
       return true;
     } catch (error) {
       return false;

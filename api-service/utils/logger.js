@@ -23,10 +23,12 @@ const securityFormat = winston.format.combine(
 function sanitizeLogData(data) {
   const sensitiveFields = ['password', 'token', 'secret', 'key', 'authorization'];
   const sanitized = { ...data };
-  
+
   function recursiveSanitize(obj) {
-    if (typeof obj !== 'object' || obj === null) return obj;
-    
+    if (typeof obj !== 'object' || obj === null) {
+      return obj;
+    }
+
     for (const [key, value] of Object.entries(obj)) {
       if (sensitiveFields.some(field => key.toLowerCase().includes(field))) {
         obj[key] = '[REDACTED]';
@@ -35,7 +37,7 @@ function sanitizeLogData(data) {
       }
     }
   }
-  
+
   recursiveSanitize(sanitized);
   return sanitized;
 }
@@ -53,7 +55,7 @@ const logger = winston.createLogger({
         winston.format.simple()
       )
     }),
-    
+
     // Write all logs to file
     new winston.transports.File({
       filename: path.join(process.cwd(), 'logs', 'error.log'),
@@ -62,14 +64,14 @@ const logger = winston.createLogger({
       maxFiles: 5,
       tailable: true
     }),
-    
+
     new winston.transports.File({
       filename: path.join(process.cwd(), 'logs', 'combined.log'),
       maxsize: 5242880, // 5MB
       maxFiles: 5,
       tailable: true
     }),
-    
+
     // Security-specific logs
     new winston.transports.File({
       filename: path.join(process.cwd(), 'logs', 'security.log'),
@@ -91,7 +93,7 @@ const securityLogger = {
       timestamp: new Date().toISOString()
     });
   },
-  
+
   logValidationFailure: (ip, userAgent, errors) => {
     logger.warn('SECURITY_EVENT', {
       type: 'VALIDATION_FAILURE',
@@ -101,7 +103,7 @@ const securityLogger = {
       timestamp: new Date().toISOString()
     });
   },
-  
+
   logRateLimitHit: (ip, endpoint, limit) => {
     logger.warn('SECURITY_EVENT', {
       type: 'RATE_LIMIT_EXCEEDED',
@@ -111,7 +113,7 @@ const securityLogger = {
       timestamp: new Date().toISOString()
     });
   },
-  
+
   logDangerousPattern: (ip, pattern, input) => {
     logger.error('SECURITY_EVENT', {
       type: 'DANGEROUS_PATTERN_DETECTED',
@@ -121,7 +123,7 @@ const securityLogger = {
       timestamp: new Date().toISOString()
     });
   },
-  
+
   logUnauthorizedAccess: (ip, userAgent, endpoint) => {
     logger.error('SECURITY_EVENT', {
       type: 'UNAUTHORIZED_ACCESS',
@@ -136,7 +138,7 @@ const securityLogger = {
 // Request logger middleware
 const requestLogger = (req, res, next) => {
   const start = Date.now();
-  
+
   // Log request
   logger.info('REQUEST_START', {
     method: req.method,
@@ -145,12 +147,12 @@ const requestLogger = (req, res, next) => {
     userAgent: req.get('User-Agent'),
     requestId: req.id || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   });
-  
+
   // Log response
   res.on('finish', () => {
     const duration = Date.now() - start;
     const logLevel = res.statusCode >= 400 ? 'warn' : 'info';
-    
+
     logger[logLevel]('REQUEST_COMPLETE', {
       method: req.method,
       url: req.url,
@@ -161,12 +163,12 @@ const requestLogger = (req, res, next) => {
       requestId: req.id
     });
   });
-  
+
   next();
 };
 
 // Error logger middleware
-const errorLogger = (err, req, res, next) => {
+const errorLogger = (err, req, _res, next) => {
   logger.error('ERROR', {
     error: {
       message: err.message,
@@ -181,7 +183,7 @@ const errorLogger = (err, req, res, next) => {
     },
     timestamp: new Date().toISOString()
   });
-  
+
   next(err);
 };
 

@@ -1,5 +1,5 @@
 const express = require('express');
-const { body, param, query, validationResult } = require('express-validator');
+const { body, query, param } = require('express-validator');
 const { v4: uuidv4 } = require('uuid');
 const { generateRateLimit, handleValidationErrors } = require('../middleware/security');
 const { logger } = require('../utils/logger');
@@ -340,7 +340,7 @@ router.get('/result/:jobId',
       if (queueType === 'diagram') {
         // Return single diagram
         const diagramData = Buffer.from(result.data, 'base64');
-        
+
         const headers = {
           'Content-Type': result.mimeType,
           'Content-Length': diagramData.length,
@@ -365,7 +365,7 @@ router.get('/result/:jobId',
             'Content-Type': 'application/json',
             'Content-Disposition': `attachment; filename="batch-results-${jobId}.json"`
           });
-          
+
           // Include base64 data in the download
           res.json(result);
         } else {
@@ -377,7 +377,7 @@ router.get('/result/:jobId',
               data: r.data ? `<base64-data-${r.data.length}-bytes>` : undefined
             }))
           };
-          
+
           res.json(responseResult);
         }
       }
@@ -401,7 +401,7 @@ router.get('/result/:jobId',
 router.get('/queue/stats', async (req, res, next) => {
   try {
     const stats = await queueManager.getQueueStats();
-    
+
     res.json({
       timestamp: new Date().toISOString(),
       queues: stats
@@ -409,7 +409,7 @@ router.get('/queue/stats', async (req, res, next) => {
 
   } catch (error) {
     logger.error('Queue stats failed', { error: error.message });
-    
+
     next({
       status: 500,
       type: 'QUEUE_STATS_ERROR',
@@ -428,17 +428,17 @@ router.delete('/job/:jobId',
 
       // Try to cancel from both queues
       let cancelled = false;
-      
+
       for (const queueType of ['diagram', 'batch']) {
         const jobStatus = await queueManager.getJobStatus(queueType, jobId);
         if (jobStatus && !jobStatus.finishedOn) {
           const queue = queueManager.queues[queueType];
           const job = await queue.getJob(jobId);
-          
+
           if (job) {
             await job.remove();
             cancelled = true;
-            
+
             logger.info('Job cancelled', {
               jobId,
               queueType,

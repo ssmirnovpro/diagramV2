@@ -8,13 +8,13 @@ const { cacheManager } = require('./utils/cache');
 const { queueManager } = require('./utils/queueManager');
 const { databaseManager } = require('./utils/database');
 const { httpOptimizer } = require('./utils/httpOptimizations');
-const { webhookManager } = require('./utils/webhookManager');
+// const { webhookManager } = require('./utils/webhookManager'); // Unused import
 const { advancedMonitoring } = require('./utils/advancedMonitoring');
 
 // Security middleware
 const {
   globalRateLimit,
-  generateRateLimit,
+  // generateRateLimit, // Unused import
   speedLimiter,
   corsOptions,
   helmetConfig,
@@ -29,6 +29,9 @@ const app = express();
 const PORT = process.env.PORT || 9001;
 const KROKI_URL = process.env.KROKI_URL || 'http://kroki-service:8001';
 
+// Global server reference for graceful shutdown
+let server;
+
 // Initialize enhanced components
 async function initializeServices() {
   try {
@@ -36,7 +39,7 @@ async function initializeServices() {
 
     // Initialize HTTP optimizations first
     httpOptimizer.initialize();
-    
+
     // Configure Express with optimizations
     httpOptimizer.configureExpressServer(app);
 
@@ -50,7 +53,7 @@ async function initializeServices() {
     if (process.env.DB_HOST || process.env.ENABLE_DATABASE !== 'false') {
       await databaseManager.initialize();
       logger.info('Database manager initialized');
-      
+
       // Update database connection metrics
       setInterval(async () => {
         const health = await databaseManager.healthCheck();
@@ -93,13 +96,13 @@ app.use(collectHttpMetrics);
 
 // Body parsing with security limits
 const maxRequestSize = process.env.MAX_REQUEST_SIZE || '1mb';
-app.use(express.json({ 
+app.use(express.json({
   limit: maxRequestSize,
   strict: true
 }));
-app.use(express.urlencoded({ 
-  extended: false, 
-  limit: maxRequestSize 
+app.use(express.urlencoded({
+  extended: false,
+  limit: maxRequestSize
 }));
 
 // Request logging
@@ -149,7 +152,7 @@ app.get('/health', async (req, res) => {
 
     // Check critical dependencies
     const dependencies = {};
-    
+
     // Cache health
     if (cacheManager.isConnected) {
       dependencies.cache = { status: 'connected', stats: cacheManager.getCacheStats() };
@@ -162,7 +165,9 @@ app.get('/health', async (req, res) => {
     if (databaseManager.isConnected) {
       const dbHealth = await databaseManager.healthCheck();
       dependencies.database = { status: dbHealth.healthy ? 'connected' : 'disconnected', ...dbHealth };
-      if (!dbHealth.healthy) health.status = 'degraded';
+      if (!dbHealth.healthy) {
+        health.status = 'degraded';
+      }
     }
 
     // Queue health
@@ -175,7 +180,7 @@ app.get('/health', async (req, res) => {
     dependencies.http = httpOptimizer.getConnectionStats();
 
     health.dependencies = dependencies;
-    
+
     res.status(health.status === 'healthy' ? 200 : 503).json(health);
   } catch (error) {
     logger.error('Health check failed', { error: error.message });
@@ -204,12 +209,12 @@ app.get('/metrics', async (req, res) => {
 app.get('/api/v1/status', async (req, res) => {
   try {
     const metrics = getMetricsSummary();
-    
+
     // Check Kroki service health
     let krokiStatus = 'unknown';
     try {
       const axios = require('axios');
-      const response = await axios.get(`${KROKI_URL}/health`, { 
+      const response = await axios.get(`${KROKI_URL}/health`, {
         timeout: 3000,
         httpAgent: httpOptimizer.getHttpAgent(),
         httpsAgent: httpOptimizer.getHttpsAgent()
@@ -338,9 +343,9 @@ app.get('/', (req, res) => {
 
 // Error handling middleware with security logging
 app.use(errorLogger);
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   const isDevelopment = process.env.NODE_ENV === 'development';
-  
+
   // Log security-relevant errors
   if (err.message && err.message.includes('CORS')) {
     logger.warn('CORS violation attempt', {
@@ -349,7 +354,7 @@ app.use((err, req, res, next) => {
       userAgent: req.get('User-Agent')
     });
   }
-  
+
   const errorResponse = {
     error: {
       message: isDevelopment ? err.message : 'An error occurred',
@@ -358,12 +363,12 @@ app.use((err, req, res, next) => {
       requestId: req.id || 'unknown'
     }
   };
-  
+
   // Only include stack trace in development
   if (isDevelopment && err.stack) {
     errorResponse.error.stack = err.stack;
   }
-  
+
   res.status(err.status || 500).json(errorResponse);
 });
 
@@ -375,7 +380,7 @@ app.use('*', (req, res) => {
     ip: req.ip,
     userAgent: req.get('User-Agent')
   });
-  
+
   res.status(404).json({
     error: {
       message: 'Endpoint not found',
@@ -397,7 +402,7 @@ app.use('*', (req, res) => {
 // Graceful shutdown
 const gracefulShutdown = async (signal) => {
   logger.info(`${signal} received, starting graceful shutdown...`);
-  
+
   try {
     // Stop accepting new connections
     server.close(() => {
@@ -410,10 +415,10 @@ const gracefulShutdown = async (signal) => {
       databaseManager.shutdown(),
       cacheManager.disconnect()
     ]);
-    
+
     httpOptimizer.cleanup();
     advancedMonitoring.cleanup();
-    
+
     logger.info('Graceful shutdown completed');
     process.exit(0);
   } catch (error) {
@@ -430,11 +435,11 @@ const startServer = async () => {
   try {
     // Initialize all services
     await initializeServices();
-    
+
     // Create and configure HTTP server
-    const server = require('http').createServer(app);
+    server = require('http').createServer(app);
     httpOptimizer.configureHttpServer(server);
-    
+
     // Start listening
     server.listen(PORT, '0.0.0.0', () => {
       logger.info('Enhanced UML API Service started', {

@@ -54,13 +54,13 @@
  *     description: |
  *       Generate a UML diagram with support for multiple formats, quality settings, and caching.
  *       This endpoint supports PlantUML, Mermaid, Graphviz, and other diagram types.
- *       
+ *
  *       **Performance Features:**
  *       - Intelligent caching with Redis
  *       - Format-specific optimizations
  *       - Compression support
  *       - Response time optimization
- *       
+ *
  *       **Security Features:**
  *       - Advanced content validation
  *       - Security pattern scanning
@@ -114,7 +114,7 @@
  *     description: |
  *       Generate multiple diagrams in a single request. This endpoint supports up to 10 diagrams
  *       per batch and can generate different formats for each diagram.
- *       
+ *
  *       **Features:**
  *       - Process up to 10 diagrams per request
  *       - Different formats per diagram
@@ -186,7 +186,7 @@
  *     description: |
  *       Submit a diagram generation request for asynchronous processing. Use this endpoint
  *       for complex diagrams or when you need to process many diagrams without blocking.
- *       
+ *
  *       **Benefits:**
  *       - Non-blocking operation
  *       - Job tracking with progress updates
@@ -240,7 +240,7 @@
  *     description: |
  *       Submit a batch of diagrams for asynchronous processing. Ideal for processing
  *       large numbers of diagrams without blocking the client.
- *       
+ *
  *       **Features:**
  *       - Process up to 50 diagrams per batch
  *       - Webhook notification on completion
@@ -413,7 +413,7 @@
  *     description: |
  *       Validate UML content for syntax errors, security issues, and quality problems
  *       without generating a diagram. Use this endpoint to check content before submission.
- *       
+ *
  *       **Validation Features:**
  *       - Syntax validation
  *       - Security scanning

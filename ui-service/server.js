@@ -17,28 +17,28 @@ const generateNonce = () => crypto.randomBytes(16).toString('base64');
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"], // Required for inline styles, consider moving to external files
+      defaultSrc: ['\'self\''],
+      styleSrc: ['\'self\'', '\'unsafe-inline\''], // Required for inline styles, consider moving to external files
       scriptSrc: (req, res) => {
         res.locals.nonce = generateNonce();
-        return ["'self'", `'nonce-${res.locals.nonce}'`];
+        return ['\'self\'', `'nonce-${res.locals.nonce}'`];
       },
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", API_URL.replace('api-service:9001', 'localhost:9001')],
-      fontSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"],
-      frameAncestors: ["'none'"],
+      imgSrc: ['\'self\'', 'data:', 'blob:'],
+      connectSrc: ['\'self\'', API_URL.replace('api-service:9001', 'localhost:9001')],
+      fontSrc: ['\'self\''],
+      objectSrc: ['\'none\''],
+      mediaSrc: ['\'self\''],
+      frameSrc: ['\'none\''],
+      baseUri: ['\'self\''],
+      formAction: ['\'self\''],
+      frameAncestors: ['\'none\''],
       upgradeInsecureRequests: []
     },
     reportOnly: false
   },
-  crossOriginEmbedderPolicy: { policy: "require-corp" },
-  crossOriginOpenerPolicy: { policy: "same-origin" },
-  crossOriginResourcePolicy: { policy: "same-origin" },
+  crossOriginEmbedderPolicy: { policy: 'require-corp' },
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginResourcePolicy: { policy: 'same-origin' },
   dnsPrefetchControl: { allow: false },
   frameguard: { action: 'deny' },
   hidePoweredBy: true,
@@ -51,8 +51,8 @@ app.use(helmet({
   noSniff: true,
   originAgentCluster: true,
   permittedCrossDomainPolicies: false,
-  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-  xssFilter: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  xssFilter: true
 }));
 
 // Trust proxy for accurate IP addresses
@@ -62,7 +62,7 @@ app.set('trust proxy', 1);
 app.use(collectHttpMetrics);
 
 // Request logging middleware with security awareness
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   const logData = {
     timestamp: new Date().toISOString(),
     method: req.method,
@@ -70,7 +70,7 @@ app.use((req, res, next) => {
     ip: req.ip,
     userAgent: req.get('User-Agent')
   };
-  
+
   // Log suspicious patterns
   const suspiciousPatterns = [
     /\.\./,
@@ -79,17 +79,17 @@ app.use((req, res, next) => {
     /onload=/i,
     /onerror=/i
   ];
-  
+
   const userAgent = req.get('User-Agent') || '';
   const requestPath = req.path || '';
-  
+
   for (const pattern of suspiciousPatterns) {
     if (pattern.test(userAgent) || pattern.test(requestPath)) {
       console.warn('🚨 SECURITY: Suspicious UI request', logData);
       break;
     }
   }
-  
+
   console.log(`${logData.timestamp} - ${logData.method} ${logData.path} - ${logData.ip}`);
   next();
 });
@@ -129,7 +129,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
       'X-Frame-Options': 'DENY',
       'Referrer-Policy': 'strict-origin-when-cross-origin'
     });
-    
+
     // Cache control for different file types
     if (path.endsWith('.js')) {
       res.set('Content-Type', 'application/javascript; charset=utf-8');
@@ -146,7 +146,7 @@ app.get('/config', (req, res) => {
   // Validate origin for additional security
   const origin = req.get('Origin');
   const referer = req.get('Referer');
-  
+
   // Log configuration requests
   console.log('Config request', {
     ip: req.ip,
@@ -154,7 +154,7 @@ app.get('/config', (req, res) => {
     referer,
     userAgent: req.get('User-Agent')
   });
-  
+
   res.json({
     apiUrl: API_URL.replace('api-service:9001', 'localhost:9001') // For browser access
   });
@@ -166,7 +166,7 @@ app.get('*', (req, res) => {
 });
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error('Error:', err);
   res.status(500).json({
     error: {

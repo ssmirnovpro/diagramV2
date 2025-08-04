@@ -1,7 +1,7 @@
 const express = require('express');
-const { body, query, validationResult } = require('express-validator');
+const { body, query /* validationResult */ } = require('express-validator');
 const compression = require('compression');
-const { generateRateLimit, plantUMLValidator, handleValidationErrors } = require('../middleware/security');
+const { generateRateLimit, /* plantUMLValidator, */ handleValidationErrors } = require('../middleware/security');
 const { logger } = require('../utils/logger');
 const { cacheManager } = require('../utils/cache');
 const FormatManager = require('../utils/formatManager');
@@ -40,7 +40,7 @@ const enhancedUmlValidator = [
         /<script/i,
         /javascript:/i
       ];
-      
+
       for (const pattern of dangerousPatterns) {
         if (pattern.test(value)) {
           throw new Error('UML code contains potentially dangerous patterns');
@@ -73,7 +73,7 @@ const enhancedUmlValidator = [
 // Format validation middleware
 const validateFormat = (req, res, next) => {
   const { diagramType = 'plantuml', format = 'png' } = req.body;
-  
+
   if (!formatManager.isFormatSupported(diagramType, format)) {
     return res.status(400).json({
       error: {
@@ -83,14 +83,14 @@ const validateFormat = (req, res, next) => {
       }
     });
   }
-  
+
   next();
 };
 
 // Clean UML code for processing
 function prepareUmlForKroki(umlCode, diagramType = 'plantuml') {
   let cleanCode = umlCode.trim();
-  
+
   // Remove diagram wrapper tags if present (Kroki adds them automatically)
   if (diagramType === 'plantuml') {
     cleanCode = cleanCode
@@ -100,19 +100,19 @@ function prepareUmlForKroki(umlCode, diagramType = 'plantuml') {
   } else if (diagramType === 'mermaid') {
     // Mermaid doesn't need wrapper removal typically
   }
-  
+
   // Additional security cleaning
   cleanCode = cleanCode
     .replace(/!define\s+[^\n]*/gi, '') // Remove !define statements
     .replace(/!include\s+[^\n]*/gi, '') // Remove !include statements
     .replace(/!includeurl\s+[^\n]*/gi, '') // Remove !includeurl statements
     .trim();
-  
+
   return cleanCode;
 }
 
 // POST /api/v2/generate - Enhanced diagram generation with multiple formats
-router.post('/generate', 
+router.post('/generate',
   generateRateLimit,
   enhancedUmlValidator,
   validateFormat,
@@ -120,7 +120,7 @@ router.post('/generate',
   async (req, res, next) => {
     const startTime = Date.now();
     let cacheKey = null;
-    
+
     try {
       const {
         uml,
@@ -142,7 +142,7 @@ router.post('/generate',
 
       // Prepare UML code
       const preparedUml = prepareUmlForKroki(uml, diagramType);
-      
+
       // Generate cache key
       cacheKey = cacheManager.generateCacheKey(preparedUml, format, {
         diagramType,
@@ -222,7 +222,7 @@ router.post('/generate',
 
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
       logger.error('Enhanced generation error', {
         error: error.message,
         ip: req.ip,
@@ -292,11 +292,11 @@ router.post('/generate/batch',
   handleValidationErrors,
   async (req, res, next) => {
     const startTime = Date.now();
-    
+
     try {
       const { requests } = req.body;
       const results = [];
-      
+
       logger.info('Batch generation request received', {
         ip: req.ip,
         batchSize: requests.length,
@@ -399,10 +399,10 @@ router.post('/generate/batch',
 // GET /api/v2/formats - Get supported formats and recommendations
 router.get('/formats', (req, res) => {
   const { diagramType = 'plantuml' } = req.query;
-  
+
   try {
     const recommendations = formatManager.getFormatRecommendations(diagramType);
-    
+
     res.json({
       diagramType,
       ...recommendations,
@@ -430,20 +430,20 @@ router.get('/optimize',
   query('diagramType').optional().isString(),
   (req, res) => {
     const { format, useCase, diagramType = 'plantuml' } = req.query;
-    
+
     try {
-      let suggestions = {};
-      
+      const suggestions = {};
+
       if (useCase) {
         suggestions.recommendedFormat = formatManager.getOptimalFormat(useCase, diagramType);
       }
-      
+
       if (format) {
         suggestions.optimizationOptions = formatManager.getOptimizationOptions(format);
       }
-      
+
       suggestions.formatRecommendations = formatManager.getFormatRecommendations(diagramType);
-      
+
       res.json({
         diagramType,
         ...suggestions

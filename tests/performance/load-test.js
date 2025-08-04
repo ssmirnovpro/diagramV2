@@ -54,19 +54,19 @@ const testDiagrams = [
 export function setup() {
   // Setup phase - verify services are running
   console.log('Starting load test setup...');
-  
+
   // Check API health
   const apiHealth = http.get(`${API_URL}/health`);
   check(apiHealth, {
     'API service is healthy': (r) => r.status === 200,
   });
-  
+
   // Check UI health
   const uiHealth = http.get(`${UI_URL}/health`);
   check(uiHealth, {
     'UI service is healthy': (r) => r.status === 200,
   });
-  
+
   console.log('Setup complete. Starting load test...');
   return { apiUrl: API_URL, uiUrl: UI_URL };
 }
@@ -74,7 +74,7 @@ export function setup() {
 export default function(data) {
   // Test scenario: Mix of UI and API requests
   const scenario = Math.random();
-  
+
   if (scenario < 0.7) {
     // 70% - Direct API requests (diagram generation)
     testDiagramGeneration(data.apiUrl);
@@ -82,18 +82,18 @@ export default function(data) {
     // 30% - UI requests (static assets, config)
     testUIRequests(data.uiUrl);
   }
-  
+
   sleep(Math.random() * 3 + 1); // Random sleep between 1-4 seconds
 }
 
 function testDiagramGeneration(apiUrl) {
   const diagram = testDiagrams[Math.floor(Math.random() * testDiagrams.length)];
-  
+
   const payload = JSON.stringify({
     uml: diagram.uml,
     format: 'png'
   });
-  
+
   const params = {
     headers: {
       'Content-Type': 'application/json',
@@ -101,23 +101,23 @@ function testDiagramGeneration(apiUrl) {
     },
     timeout: '30s',
   };
-  
+
   const startTime = Date.now();
   const response = http.post(`${apiUrl}/api/v1/generate`, payload, params);
   const endTime = Date.now();
-  
+
   const success = check(response, {
     'diagram generation status is 200': (r) => r.status === 200,
     'response time < 10s': (r) => r.timings.duration < 10000,
     'response has content': (r) => r.body && r.body.length > 0,
     'content type is image': (r) => r.headers['Content-Type'] && r.headers['Content-Type'].includes('image'),
   });
-  
+
   // Record custom metrics
   errorRate.add(!success);
   responseTime.add(endTime - startTime);
   diagramGenerations.add(1);
-  
+
   if (!success) {
     console.log(`Diagram generation failed: ${diagram.name}, Status: ${response.status}`);
   }
@@ -129,23 +129,23 @@ function testUIRequests(uiUrl) {
     { name: 'UI Config', url: `${uiUrl}/config` },
     { name: 'UI Health', url: `${uiUrl}/health` },
   ];
-  
+
   const request = requests[Math.floor(Math.random() * requests.length)];
-  
+
   const response = http.get(request.url, {
     headers: {
       'User-Agent': 'k6-load-test/1.0',
     },
     timeout: '10s',
   });
-  
+
   const success = check(response, {
     [`${request.name} status is 200`]: (r) => r.status === 200,
     [`${request.name} response time < 2s`]: (r) => r.timings.duration < 2000,
   });
-  
+
   errorRate.add(!success);
-  
+
   if (!success) {
     console.log(`UI request failed: ${request.name}, Status: ${response.status}`);
   }
@@ -153,7 +153,7 @@ function testUIRequests(uiUrl) {
 
 export function teardown(data) {
   console.log('Load test completed.');
-  
+
   // Optional: Send test results to monitoring system
   const results = {
     timestamp: new Date().toISOString(),
@@ -161,6 +161,6 @@ export function teardown(data) {
     uiUrl: data.uiUrl,
     totalDiagramGenerations: diagramGenerations.count,
   };
-  
+
   console.log('Test Results:', JSON.stringify(results, null, 2));
 }

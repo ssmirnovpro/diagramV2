@@ -1,14 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const axios = require('axios');
+// const axios = require('axios'); // Unused import
 const fs = require('fs');
 const path = require('path');
 
 // Security middleware
 const {
   globalRateLimit,
-  generateRateLimit,
+  // generateRateLimit, // Unused import
   speedLimiter,
   corsOptions,
   helmetConfig,
@@ -48,13 +48,13 @@ app.use(collectHttpMetrics);
 
 // Body parsing with security limits
 const maxRequestSize = process.env.MAX_REQUEST_SIZE || '1mb';
-app.use(express.json({ 
+app.use(express.json({
   limit: maxRequestSize,
   strict: true
 }));
-app.use(express.urlencoded({ 
-  extended: false, 
-  limit: maxRequestSize 
+app.use(express.urlencoded({
+  extended: false,
+  limit: maxRequestSize
 }));
 
 // Request logging
@@ -113,10 +113,10 @@ app.use('/api/v1', require('./routes/generate'));
 
 // Error handling middleware with security logging
 app.use(errorLogger);
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   // Security: Don't expose sensitive error details in production
   const isDevelopment = process.env.NODE_ENV === 'development';
-  
+
   // Log security-relevant errors
   if (err.message && err.message.includes('CORS')) {
     logger.warn('CORS violation attempt', {
@@ -125,7 +125,7 @@ app.use((err, req, res, next) => {
       userAgent: req.get('User-Agent')
     });
   }
-  
+
   const errorResponse = {
     error: {
       message: isDevelopment ? err.message : 'An error occurred',
@@ -133,12 +133,12 @@ app.use((err, req, res, next) => {
       timestamp: new Date().toISOString()
     }
   };
-  
+
   // Only include stack trace in development
   if (isDevelopment && err.stack) {
     errorResponse.error.stack = err.stack;
   }
-  
+
   res.status(err.status || 500).json(errorResponse);
 });
 
@@ -150,7 +150,7 @@ app.use('*', (req, res) => {
     ip: req.ip,
     userAgent: req.get('User-Agent')
   });
-  
+
   res.status(404).json({
     error: {
       message: 'Endpoint not found',

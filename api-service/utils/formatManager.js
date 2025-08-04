@@ -77,7 +77,7 @@ class FormatManager {
   async generateDiagram(umlCode, diagramType = 'plantuml', format = 'png', options = {}) {
     const formatLower = format.toLowerCase();
     const formatConfig = this.getFormatConfig(formatLower);
-    
+
     if (!formatConfig) {
       throw new Error(`Unsupported format: ${format}`);
     }
@@ -88,11 +88,11 @@ class FormatManager {
 
     try {
       const startTime = Date.now();
-      
+
       // Generate base format (PNG for conversions, direct for others)
       const endpoint = formatConfig.endpoint;
       const krokiUrl = `${this.krokiUrl}/${diagramType}/${endpoint}`;
-      
+
       logger.info('Generating diagram', {
         diagramType,
         format: formatLower,
@@ -138,7 +138,7 @@ class FormatManager {
       }
 
       const duration = Date.now() - startTime;
-      
+
       logger.info('Diagram generated successfully', {
         diagramType,
         format: formatLower,
@@ -190,34 +190,44 @@ class FormatManager {
 
   // PNG validation
   validatePNG(data) {
-    if (!data || data.length < 8) return false;
+    if (!data || data.length < 8) {
+      return false;
+    }
     const pngHeader = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
     return pngHeader.equals(data.slice(0, 8));
   }
 
   // SVG validation
   validateSVG(data) {
-    if (!data || data.length < 5) return false;
+    if (!data || data.length < 5) {
+      return false;
+    }
     const svgContent = data.toString('utf8');
     return svgContent.includes('<svg') && svgContent.includes('</svg>');
   }
 
   // PDF validation
   validatePDF(data) {
-    if (!data || data.length < 4) return false;
+    if (!data || data.length < 4) {
+      return false;
+    }
     const pdfHeader = Buffer.from('%PDF');
     return pdfHeader.equals(data.slice(0, 4));
   }
 
   // JPEG validation
   validateJPEG(data) {
-    if (!data || data.length < 3) return false;
+    if (!data || data.length < 3) {
+      return false;
+    }
     return data[0] === 0xFF && data[1] === 0xD8 && data[2] === 0xFF;
   }
 
   // WebP validation
   validateWebP(data) {
-    if (!data || data.length < 12) return false;
+    if (!data || data.length < 12) {
+      return false;
+    }
     const riffHeader = data.slice(0, 4).toString('ascii');
     const webpHeader = data.slice(8, 12).toString('ascii');
     return riffHeader === 'RIFF' && webpHeader === 'WEBP';
@@ -228,9 +238,9 @@ class FormatManager {
     try {
       const quality = options.quality || 85;
       const progressive = options.progressive !== false;
-      
+
       const jpegData = await sharp(pngData)
-        .jpeg({ 
+        .jpeg({
           quality,
           progressive,
           mozjpeg: true
@@ -252,9 +262,9 @@ class FormatManager {
     try {
       const quality = options.quality || 80;
       const lossless = options.lossless || false;
-      
+
       const webpData = await sharp(pngData)
-        .webp({ 
+        .webp({
           quality: lossless ? undefined : quality,
           lossless,
           effort: 6
@@ -280,40 +290,40 @@ class FormatManager {
     try {
       const pipeline = sharp(imageData);
       const compressionLevel = options.compressionLevel || 'balanced';
-      
+
       switch (format) {
-        case 'png':
-          return await pipeline
-            .png({ 
-              compressionLevel: compressionLevel === 'high' ? 9 : 6,
-              progressive: true
-            })
-            .toBuffer();
-            
-        case 'jpeg':
-          return await pipeline
-            .jpeg({ 
-              quality: compressionLevel === 'high' ? 95 : 85,
-              progressive: true,
-              mozjpeg: true
-            })
-            .toBuffer();
-            
-        case 'webp':
-          return await pipeline
-            .webp({ 
-              quality: compressionLevel === 'high' ? 90 : 80,
-              effort: compressionLevel === 'high' ? 6 : 4
-            })
-            .toBuffer();
-            
-        default:
-          return imageData;
+      case 'png':
+        return await pipeline
+          .png({
+            compressionLevel: compressionLevel === 'high' ? 9 : 6,
+            progressive: true
+          })
+          .toBuffer();
+
+      case 'jpeg':
+        return await pipeline
+          .jpeg({
+            quality: compressionLevel === 'high' ? 95 : 85,
+            progressive: true,
+            mozjpeg: true
+          })
+          .toBuffer();
+
+      case 'webp':
+        return await pipeline
+          .webp({
+            quality: compressionLevel === 'high' ? 90 : 80,
+            effort: compressionLevel === 'high' ? 6 : 4
+          })
+          .toBuffer();
+
+      default:
+        return imageData;
       }
     } catch (error) {
-      logger.warn('Image compression failed, using original', { 
+      logger.warn('Image compression failed, using original', {
         error: error.message,
-        format 
+        format
       });
       return imageData;
     }
@@ -332,12 +342,12 @@ class FormatManager {
     };
 
     const suggested = useCases[useCase] || 'png';
-    
+
     // Check if suggested format is supported for the diagram type
     if (this.isFormatSupported(diagramType, suggested)) {
       return suggested;
     }
-    
+
     // Fallback to PNG if suggested format not supported
     return 'png';
   }
@@ -345,7 +355,7 @@ class FormatManager {
   // Get format recommendations
   getFormatRecommendations(diagramType) {
     const supported = this.diagramTypes[diagramType.toLowerCase()] || ['png'];
-    
+
     return {
       supported,
       recommendations: {
@@ -368,25 +378,25 @@ class FormatManager {
     const level = qualityLevels[quality] || qualityLevels.balanced;
 
     switch (format.toLowerCase()) {
-      case 'png':
-        return {
-          compressionLevel: level.compression,
-          progressive: true
-        };
-      case 'jpeg':
-        return {
-          quality: level.quality,
-          progressive: true,
-          mozjpeg: true
-        };
-      case 'webp':
-        return {
-          quality: level.quality,
-          effort: level.effort,
-          lossless: quality === 'high'
-        };
-      default:
-        return {};
+    case 'png':
+      return {
+        compressionLevel: level.compression,
+        progressive: true
+      };
+    case 'jpeg':
+      return {
+        quality: level.quality,
+        progressive: true,
+        mozjpeg: true
+      };
+    case 'webp':
+      return {
+        quality: level.quality,
+        effort: level.effort,
+        lossless: quality === 'high'
+      };
+    default:
+      return {};
     }
   }
 }
