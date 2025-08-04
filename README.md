@@ -1,43 +1,43 @@
 # UML Images Service
 
-Веб-сервис для генерации диаграмм из PlantUML кода с микросервисной архитектурой.
+Web service for generating diagrams from PlantUML code with microservice architecture.
 
 ![UI screenshot](docs/UI-screenshot.png)
 
-## Архитектура
+## Architecture
 
-Система состоит из 3 микросервисов:
+The system consists of 3 microservices:
 
-1. **API Service** (порт 9001) - REST API для генерации диаграмм
-2. **UI Service** (порт 9002) - веб-интерфейс для работы с UML кодом
-3. **Kroki Service** (порт 8001) - движок рендеринга PlantUML
+1. **API Service** (port 9001) - REST API for diagram generation
+2. **UI Service** (port 9002) - web interface for working with UML code
+3. **Kroki Service** (port 8001) - PlantUML rendering engine
 
-## Технологии
+## Technologies
 
 - Node.js & Express
 - Docker & Docker Compose
-- Vanilla JavaScript (без фреймворков)
-- PlantUML через Kroki
+- Vanilla JavaScript (no frameworks)
+- PlantUML via Kroki
 
-## Запуск
+## Running
 
-### Разработка (Development режим)
+### Development mode
 
 ```bash
-# Запуск всех сервисов
+# Start all services
 npm run dev
 
-# Остановка сервисов
+# Stop services
 npm run stop
 
-# Просмотр логов
+# View logs
 npm run logs
 
-# Полная очистка (контейнеры, образы, volumes)
+# Complete cleanup (containers, images, volumes)
 npm run clean
 ```
 
-### Доступ к сервисам
+### Service Access
 
 - **UI Service**: http://localhost:9002
 - **API Service**: http://localhost:9001
@@ -53,7 +53,7 @@ npm run clean
 
 ### POST /api/v1/generate
 
-Генерация PNG диаграммы из PlantUML кода.
+Generate PNG diagram from PlantUML code.
 
 **Request:**
 ```json
@@ -64,9 +64,9 @@ npm run clean
 
 **Response:**
 - Success: PNG image (binary)
-- Error: JSON с описанием ошибки
+- Error: JSON with error description
 
-## Примеры PlantUML кода
+## PlantUML Code Examples
 
 ```plantuml
 @startuml
@@ -87,50 +87,50 @@ class User {
 @enduml
 ```
 
-## 🛡️ Безопасность
+## 🛡️ Security
 
-Сервис включает комплексные меры безопасности:
+The service includes comprehensive security measures:
 
-### Ключевые функции безопасности
-- ✅ **Защита от RCE**: Kroki запущен в безопасном режиме
-- ✅ **Валидация входных данных**: Блокировка опасных PlantUML паттернов  
-- ✅ **Rate limiting**: Ограничение запросов по IP
-- ✅ **CORS защита**: Настроенная политика источников
-- ✅ **Безопасность контейнеров**: Непривилегированные пользователи
-- ✅ **Security headers**: CSP, HSTS, X-Frame-Options и др.
-- ✅ **Мониторинг безопасности**: Логирование подозрительной активности
+### Key Security Features
+- ✅ **RCE Protection**: Kroki runs in secure mode
+- ✅ **Input Validation**: Blocks dangerous PlantUML patterns  
+- ✅ **Rate limiting**: Request limiting by IP
+- ✅ **CORS Protection**: Configured origin policy
+- ✅ **Container Security**: Non-privileged users
+- ✅ **Security headers**: CSP, HSTS, X-Frame-Options, etc.
+- ✅ **Security Monitoring**: Suspicious activity logging
 
-### Безопасный запуск (Production)
+### Secure Launch (Production)
 
 ```bash
-# Развертывание с production настройками безопасности
+# Deploy with production security settings
 ./scripts/secure-deploy.sh --environment production
 
-# Тестирование безопасности
+# Security testing
 ./scripts/security-test.sh
 
-# Мониторинг безопасности
+# Security monitoring
 ./scripts/security-monitor.sh --continuous
 ```
 
-### Документация безопасности
-Подробная информация о мерах безопасности: [SECURITY.md](SECURITY.md)
+### Security Documentation
+Detailed information about security measures: [SECURITY.md](SECURITY.md)
 
-## Структура проекта
+## Project Structure
 
 ```
 uml-images-service/
-├── api-service/              # API микросервис
-│   ├── middleware/           # Middleware безопасности
-│   ├── utils/               # Утилиты логирования
-│   └── logs/                # Логи безопасности
-├── ui-service/              # UI микросервис
-├── scripts/                 # Скрипты безопасности
-│   ├── secure-deploy.sh     # Безопасное развертывание
-│   ├── security-test.sh     # Тестирование безопасности
-│   └── security-monitor.sh  # Мониторинг безопасности
-├── docker-compose.yml       # Базовая конфигурация
-├── docker-compose.prod.yml  # Production конфигурация
-├── SECURITY.md             # Документация безопасности
-└── README.md               # Документация
+├── api-service/              # API microservice
+│   ├── middleware/           # Security middleware
+│   ├── utils/               # Logging utilities
+│   └── logs/                # Security logs
+├── ui-service/              # UI microservice
+├── scripts/                 # Security scripts
+│   ├── secure-deploy.sh     # Secure deployment
+│   ├── security-test.sh     # Security testing
+│   └── security-monitor.sh  # Security monitoring
+├── docker-compose.yml       # Base configuration
+├── docker-compose.prod.yml  # Production configuration
+├── SECURITY.md             # Security documentation
+└── README.md               # Documentation
 ```
