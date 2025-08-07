@@ -1,0 +1,25 @@
+digraph BeautifulGraph {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontname="Arial"];
+    edge [fontname="Arial"];
+    
+    // Define nodes with colors
+    Start [fillcolor="#90EE90", label="Start Process"];
+    Input [fillcolor="#87CEEB", label="Get Input"];
+    Validate [shape=diamond, fillcolor="#FFE4B5", label="Valid?"];
+    Process [fillcolor="#DDA0DD", label="Process Data"];
+    Store [shape=cylinder, fillcolor="#F0E68C", label="Store"];
+    Output [fillcolor="#FFB6C1", label="Output"];
+    End [fillcolor="#98FB98", label="Complete"];
+    Error [fillcolor="#FFA07A", label="Error Handler"];
+    
+    // Define edges
+    Start -> Input;
+    Input -> Validate;
+    Validate -> Process [label="Yes"];
+    Validate -> Error [label="No", color="red"];
+    Process -> Store;
+    Store -> Output;
+    Output -> End;
+    Error -> Input [label="Retry", style="dashed"];
+}

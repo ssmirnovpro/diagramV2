@@ -6,22 +6,27 @@ const router = express.Router();
 
 const KROKI_URL = process.env.KROKI_URL || 'http://kroki-service:8000';
 
-// Secure utility function to prepare PlantUML for Kroki
-function prepareUmlForKroki(umlCode) {
-  // Remove @startuml/@enduml if present, Kroki adds them automatically for PlantUML
-  let cleanCode = umlCode
-    .replace(/^\s*@startuml.*$/gm, '')
-    .replace(/^\s*@enduml.*$/gm, '')
-    .trim();
+// Secure utility function to prepare diagram code for Kroki
+function prepareUmlForKroki(umlCode, diagramType = 'plantuml') {
+  if (diagramType === 'plantuml') {
+    // Remove @startuml/@enduml if present, Kroki adds them automatically for PlantUML
+    let cleanCode = umlCode
+      .replace(/^\s*@startuml.*$/gm, '')
+      .replace(/^\s*@enduml.*$/gm, '')
+      .trim();
 
-  // Additional security: Remove any potential dangerous preprocessing
-  cleanCode = cleanCode
-    .replace(/!define\s+[^\\n]*/gi, '') // Remove !define statements
-    .replace(/!include\s+[^\\n]*/gi, '') // Remove !include statements
-    .replace(/!includeurl\s+[^\\n]*/gi, '') // Remove !includeurl statements
-    .trim();
+    // Additional security: Remove any potential dangerous preprocessing
+    cleanCode = cleanCode
+      .replace(/!define\s+[^\\n]*/gi, '') // Remove !define statements
+      .replace(/!include\s+[^\\n]*/gi, '') // Remove !include statements
+      .replace(/!includeurl\s+[^\\n]*/gi, '') // Remove !includeurl statements
+      .trim();
 
-  return cleanCode;
+    return cleanCode;
+  } else {
+    // For other diagram types, return as-is with basic sanitization
+    return umlCode.trim();
+  }
 }
 
 // Enhanced UML code validation (replaced by middleware, kept for backward compatibility)
@@ -66,19 +71,24 @@ router.post('/generate',
         contentLength: req.get('Content-Length')
       });
 
-      const { uml } = req.body;
+      const { uml, diagram_type = 'plantuml', output_format = 'png' } = req.body;
 
       // Double validation (middleware + function for defense in depth)
       const validatedUml = validateUmlCode(uml);
       logger.info('UML code validated', { length: validatedUml.length });
 
       // Prepare UML for Kroki with security cleaning
-      const preparedUml = prepareUmlForKroki(validatedUml);
+      const preparedUml = prepareUmlForKroki(validatedUml, diagram_type);
       logger.info('UML code prepared for Kroki');
 
       // Generate diagram via Kroki POST endpoint with enhanced security
-      const krokiUrl = `${KROKI_URL}/plantuml/png`;
-      logger.info('Requesting diagram from Kroki', { krokiUrl });
+      const krokiUrl = `${KROKI_URL}/${diagram_type}/${output_format}`;
+      logger.info('Requesting diagram from Kroki', { 
+        krokiUrl, 
+        diagramType: diagram_type,
+        contentLength: preparedUml.length,
+        contentPreview: preparedUml.substring(0, 100)
+      });
 
       const response = await axios.post(krokiUrl, preparedUml, {
         responseType: 'arraybuffer',
@@ -88,7 +98,7 @@ router.post('/generate',
         headers: {
           'Content-Type': 'text/plain',
           'User-Agent': 'UML-Images-Service/1.0',
-          'Accept': 'image/png'
+          'Accept': output_format === 'svg' ? 'image/svg+xml' : `image/${output_format}`
         },
         validateStatus: (status) => status < 500 // Don't throw on 4xx errors
       });
@@ -99,7 +109,7 @@ router.post('/generate',
           ip: req.ip
         });
 
-        // Validate response is actually a PNG
+        // Validate response
         if (!response.data || response.data.length < 8) {
           throw {
             status: 502,
@@ -108,25 +118,31 @@ router.post('/generate',
           };
         }
 
-        // Check PNG magic bytes for security
-        const pngHeader = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
-        const responseHeader = response.data.slice(0, 8);
-        if (!pngHeader.equals(responseHeader)) {
-          securityLogger.logSuspiciousActivity('INVALID_PNG_RESPONSE', {
-            ip: req.ip,
-            expectedHeader: pngHeader.toString('hex'),
-            actualHeader: responseHeader.toString('hex')
-          });
-          throw {
-            status: 502,
-            type: 'INVALID_RESPONSE',
-            message: 'Response is not a valid PNG image'
-          };
+        // Validate file format based on output_format
+        if (output_format === 'png') {
+          const pngHeader = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+          const responseHeader = response.data.slice(0, 8);
+          if (!pngHeader.equals(responseHeader)) {
+            throw {
+              status: 502,
+              type: 'INVALID_RESPONSE',
+              message: 'Response is not a valid PNG image'
+            };
+          }
+        } else if (output_format === 'svg') {
+          const responseText = response.data.toString('utf8', 0, Math.min(500, response.data.length));
+          if (!responseText.includes('<svg') && !responseText.includes('<?xml')) {
+            throw {
+              status: 502,
+              type: 'INVALID_RESPONSE',
+              message: 'Response is not a valid SVG image'
+            };
+          }
         }
 
-        // Set secure headers for PNG image
+        // Set secure headers for image
         res.set({
-          'Content-Type': 'image/png',
+          'Content-Type': output_format === 'svg' ? 'image/svg+xml' : `image/${output_format}`,
           'Content-Length': response.data.length,
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',

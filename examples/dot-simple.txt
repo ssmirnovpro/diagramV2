@@ -1,0 +1,15 @@
+digraph SimpleGraph {
+    rankdir=LR;
+    
+    node [shape=rectangle, style=filled];
+    
+    Start [fillcolor=lightgreen];
+    Process [fillcolor=lightblue];  
+    Decision [shape=diamond, fillcolor=yellow];
+    End [fillcolor=lightcoral];
+    
+    Start -> Process [label="begin"];
+    Process -> Decision [label="check"];
+    Decision -> End [label="done"];
+    Decision -> Process [label="retry"];
+}

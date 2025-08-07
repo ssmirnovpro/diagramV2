@@ -19,10 +19,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ['\'self\''],
       styleSrc: ['\'self\'', '\'unsafe-inline\''], // Required for inline styles, consider moving to external files
-      scriptSrc: (req, res) => {
-        res.locals.nonce = generateNonce();
-        return ['\'self\'', `'nonce-${res.locals.nonce}'`];
-      },
+      scriptSrc: ['\'self\'', '\'unsafe-inline\''], // Simplified for now
       imgSrc: ['\'self\'', 'data:', 'blob:'],
       connectSrc: ['\'self\'', API_URL.replace('api-service:9001', 'localhost:9001')],
       fontSrc: ['\'self\''],

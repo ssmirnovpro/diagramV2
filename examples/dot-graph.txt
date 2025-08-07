@@ -1,0 +1,38 @@
+digraph Architecture {
+    rankdir=TB;
+    
+    subgraph cluster_frontend {
+        label="Frontend";
+        style=filled;
+        fillcolor=lightblue;
+        
+        Web [label="Web App"];
+        Mobile [label="Mobile App"];
+    }
+    
+    subgraph cluster_backend {
+        label="Backend";
+        style=filled;
+        fillcolor=lightyellow;
+        
+        API [label="API Server"];
+        Auth [label="Auth Service"];
+        Cache [label="Cache Layer"];
+    }
+    
+    subgraph cluster_data {
+        label="Data Layer";
+        style=filled;
+        fillcolor=lightgreen;
+        
+        DB [label="Database", shape=cylinder];
+        Redis [label="Redis", shape=cylinder];
+    }
+    
+    Web -> API;
+    Mobile -> API;
+    API -> Auth;
+    API -> Cache;
+    Auth -> DB;
+    Cache -> Redis;
+}

@@ -51,8 +51,11 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S apiuser -u 1001 -G nodejs -s /bin/sh
 
-# Copy application from build stage
+# Copy application from build stage (excluding node_modules)
 COPY --from=build --chown=apiuser:nodejs /app ./
+
+# Copy production dependencies from dependencies stage
+COPY --from=dependencies --chown=apiuser:nodejs /app/node_modules ./node_modules
 
 # Create logs directory with proper permissions
 RUN mkdir -p logs && chown -R apiuser:nodejs logs && \

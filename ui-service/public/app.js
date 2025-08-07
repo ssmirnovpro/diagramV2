@@ -52,6 +52,9 @@ class UMLImageService {
 
       // Initialize editor features
       this.initializeEditor();
+      
+      // Disable image controls initially (no image yet)
+      this.disableImageControls();
 
       // Load saved state
       await this.loadSavedState();
@@ -220,6 +223,14 @@ rectangle System {
     this.bindEvent('exampleBtn', 'click', () => this.loadExample());
     this.bindEvent('clearBtn', 'click', () => this.clearCode());
     this.bindEvent('templateBtn', 'click', () => this.showTemplateModal());
+    
+    // Diagram type selector
+    const diagramType = document.getElementById('diagramType');
+    if (diagramType) {
+      diagramType.addEventListener('change', (e) => {
+        this.updatePlaceholderForDiagramType(e.target.value);
+      });
+    }
 
     // Download buttons
     this.bindEvent('downloadPngBtn', 'click', () => this.downloadImage('png'));
@@ -556,6 +567,8 @@ rectangle System {
   }
 
   async generateDiagram() {
+    console.log('🚀 GENERATE DIAGRAM CALLED - NEW VERSION!');
+    
     const umlCode = document.getElementById('umlCode').value.trim();
     const generateBtn = document.getElementById('generateBtn');
     const status = document.getElementById('status');
@@ -580,6 +593,29 @@ rectangle System {
       console.log('📡 Sending request to API...');
 
       const startTime = performance.now();
+      
+      // Get diagram type and format
+      const diagramType = document.getElementById('diagramType')?.value || 'plantuml';
+      const outputFormat = ['graphviz'].includes(diagramType) ? 'svg' : 'png';
+      
+      // Debug logging
+      console.log('🔍 Request details:', {
+        diagramType,
+        outputFormat,
+        codeLength: umlCode.length,
+        codePreview: umlCode.substring(0, 100)
+      });
+
+      const requestBody = { 
+        uml: umlCode,
+        diagram_type: diagramType,
+        output_format: outputFormat
+      };
+      
+      console.log('📤 Sending to API:', {
+        url: `${this.apiUrl}/api/v1/generate`,
+        body: requestBody
+      });
 
       // Send request to API with timeout
       const controller = new AbortController();
@@ -590,7 +626,7 @@ rectangle System {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ uml: umlCode }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal
       });
 
@@ -600,13 +636,32 @@ rectangle System {
       if (!response.ok) {
         // Handle error response
         const errorData = await response.json().catch(() => null);
-        const errorMessage = errorData?.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+        let errorMessage = errorData?.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+        
+        // Provide better error messages for common D2 issues
+        if (diagramType === 'd2' && errorMessage.includes('status 400')) {
+          console.error('🚨 D2 Error Debug:', {
+            originalError: errorMessage,
+            codeLength: umlCode.length,
+            codePreview: umlCode.substring(0, 200),
+            diagramType,
+            outputFormat
+          });
+          errorMessage = 'Invalid D2 syntax. Check console for details. D2 uses format: BoxA -> BoxB';
+        }
+        
         throw new Error(errorMessage);
       }
 
       // Get image blob
       const imageBlob = await response.blob();
       this.currentImageBlob = imageBlob;
+      
+      console.log('📸 Image received:', {
+        size: imageBlob.size,
+        type: imageBlob.type,
+        format: outputFormat
+      });
 
       // Revoke previous URL to prevent memory leaks
       if (this.currentImageUrl) {
@@ -616,7 +671,21 @@ rectangle System {
       // Create image URL and display
       const imageUrl = URL.createObjectURL(imageBlob);
       this.currentImageUrl = imageUrl;
-      this.displayImage(imageUrl);
+      
+      // For SVG, we need to set the correct MIME type
+      if (outputFormat === 'svg' && !imageBlob.type.includes('svg')) {
+        // Create a new blob with correct MIME type
+        const svgBlob = new Blob([imageBlob], { type: 'image/svg+xml' });
+        this.currentImageBlob = svgBlob;
+        if (this.currentImageUrl) {
+          URL.revokeObjectURL(this.currentImageUrl);
+        }
+        const svgUrl = URL.createObjectURL(svgBlob);
+        this.currentImageUrl = svgUrl;
+        this.displayImage(svgUrl);
+      } else {
+        this.displayImage(imageUrl);
+      }
 
       // Cache diagram for offline use
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -659,7 +728,11 @@ rectangle System {
           this.storeFailedRequest({
             url: `${this.apiUrl}/api/v1/generate`,
             method: 'POST',
-            body: JSON.stringify({ uml: umlCode }),
+            body: JSON.stringify({ 
+          uml: umlCode,
+          diagram_type: document.getElementById('diagramType')?.value || 'plantuml',
+          output_format: ['d2', 'mermaid', 'graphviz'].includes(document.getElementById('diagramType')?.value) ? 'svg' : 'png'
+        }),
             timestamp: Date.now()
           });
         }
@@ -667,6 +740,15 @@ rectangle System {
 
       this.showStatus(`❌ ${userMessage}`, 'error');
       this.displayError(errorMessage);
+      
+      // Clear any previous image and disable download buttons
+      this.clearImage();
+      this.disableImageControls();
+      this.currentImageBlob = null;
+      if (this.currentImageUrl) {
+        URL.revokeObjectURL(this.currentImageUrl);
+        this.currentImageUrl = null;
+      }
 
       // Show toast with more details
       this.showToast('Generation Failed', userMessage, 'error');
@@ -685,30 +767,64 @@ rectangle System {
   displayImage(imageUrl) {
     const renderStart = performance.now();
     const imageContainer = document.getElementById('imageContainer');
+    const diagramType = document.getElementById('diagramType')?.value || 'plantuml';
 
-    const img = new Image();
-    img.onload = () => {
-      this.performanceMetrics.renderTime = performance.now() - renderStart;
-      console.log('🖼️ Image rendered in', Math.round(this.performanceMetrics.renderTime), 'ms');
+    // Check if this is an SVG
+    const isSvg = ['graphviz'].includes(diagramType);
+    
+    if (isSvg) {
+      // For SVG, fetch and embed directly for better compatibility
+      fetch(imageUrl)
+        .then(response => response.text())
+        .then(svgText => {
+          imageContainer.innerHTML = svgText;
+          const svgElement = imageContainer.querySelector('svg');
+          if (svgElement) {
+            svgElement.style.maxWidth = '100%';
+            svgElement.style.height = 'auto';
+            svgElement.style.transform = `scale(${this.zoomLevel})`;
+            svgElement.style.transition = 'transform 0.2s ease';
+          }
+          
+          this.performanceMetrics.renderTime = performance.now() - renderStart;
+          console.log('🖼️ SVG rendered in', Math.round(this.performanceMetrics.renderTime), 'ms');
+          
+          // Update description for screen readers
+          const description = document.getElementById('diagram-description');
+          if (description) {
+            description.textContent = `${diagramType.toUpperCase()} diagram generated successfully`;
+          }
+        })
+        .catch(error => {
+          console.error('Failed to load SVG:', error);
+          this.displayError('Failed to load generated SVG image');
+        });
+    } else {
+      // For PNG/other formats, use img element
+      const img = new Image();
+      img.onload = () => {
+        this.performanceMetrics.renderTime = performance.now() - renderStart;
+        console.log('🖼️ Image rendered in', Math.round(this.performanceMetrics.renderTime), 'ms');
 
-      // Update description for screen readers
-      const description = document.getElementById('diagram-description');
-      if (description) {
-        description.textContent = `UML diagram generated from ${this.editorStats.lines} lines of PlantUML code`;
-      }
-    };
+        // Update description for screen readers
+        const description = document.getElementById('diagram-description');
+        if (description) {
+          description.textContent = `${diagramType.toUpperCase()} diagram generated successfully`;
+        }
+      };
 
-    img.onerror = () => {
-      this.displayError('Failed to load generated image');
-    };
+      img.onerror = () => {
+        this.displayError('Failed to load generated image');
+      };
 
-    img.src = imageUrl;
-    img.alt = 'Generated UML Diagram';
-    img.style.transform = `scale(${this.zoomLevel})`;
-    img.style.transition = 'transform 0.2s ease';
+      img.src = imageUrl;
+      img.alt = 'Generated Diagram';
+      img.style.transform = `scale(${this.zoomLevel})`;
+      img.style.transition = 'transform 0.2s ease';
 
-    imageContainer.innerHTML = '';
-    imageContainer.appendChild(img);
+      imageContainer.innerHTML = '';
+      imageContainer.appendChild(img);
+    }
 
     // Reset zoom level
     this.zoomLevel = 1;
@@ -810,7 +926,10 @@ rectangle System {
   }
 
   loadExample() {
-    const exampleCode = `@startuml
+    const diagramType = document.getElementById('diagramType')?.value || 'plantuml';
+    
+    const examples = {
+      'plantuml': `@startuml
 !theme plain
 title UML Images Service - Example Sequence Diagram
 
@@ -839,17 +958,36 @@ deactivate ui
 
 note right of User: Modern, accessible\\nUML diagram service
 
-@enduml`;
+@enduml`,
+      'graphviz': `digraph SystemFlow {
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fillcolor=lightblue];
+  
+  Start [fillcolor="#90EE90"];
+  Process [fillcolor="#87CEEB"];
+  Decision [shape=diamond, fillcolor="#FFE4B5"];
+  Success [fillcolor="#98FB98"];
+  Retry [fillcolor="#FFA07A"];
+  End [fillcolor="#DDA0DD"];
+  
+  Start -> Process;
+  Process -> Decision [label="Check"];
+  Decision -> Success [label="Yes"];
+  Decision -> Retry [label="No"];
+  Retry -> Process;
+  Success -> End;
+}`
+    };
 
     const umlCodeElement = document.getElementById('umlCode');
     if (umlCodeElement) {
-      umlCodeElement.value = exampleCode;
+      umlCodeElement.value = examples[diagramType] || examples['plantuml'];
       umlCodeElement.focus();
       this.updateEditorStats();
     }
 
-    this.showStatus('Example loaded. Click "Generate Diagram" to create the diagram.', 'success');
-    this.announceToScreenReader('Example code loaded into editor');
+    this.showStatus(`${diagramType.toUpperCase()} example loaded. Click "Generate Diagram" to create.`, 'success');
+    this.announceToScreenReader(`${diagramType} example code loaded into editor`);
   }
 
   clearCode() {
@@ -864,6 +1002,21 @@ note right of User: Modern, accessible\\nUML diagram service
     this.showStatus('Editor cleared', 'success');
     this.announceToScreenReader('Editor cleared');
   }
+  
+  updatePlaceholderForDiagramType(type) {
+    const textarea = document.getElementById('umlCode');
+    const placeholders = {
+      'plantuml': 'Enter your PlantUML code here...\n\nExample:\n@startuml\nAlice -> Bob: Hello\nBob -> Alice: Hi there\n@enduml',
+      'graphviz': 'Enter your Graphviz DOT code here...\n\nExample:\ndigraph G {\n  A -> B;\n  B -> C;\n  C -> A;\n}'
+    };
+    
+    if (textarea && placeholders[type]) {
+      textarea.placeholder = placeholders[type];
+    }
+    
+    // Update status message
+    this.showStatus(`Switched to ${type.toUpperCase()} mode`, 'info');
+  }
 
   downloadImage(format = 'png') {
     if (!this.currentImageBlob) {
@@ -873,12 +1026,26 @@ note right of User: Modern, accessible\\nUML diagram service
     }
 
     try {
-      const url = URL.createObjectURL(this.currentImageBlob);
+      const diagramType = document.getElementById('diagramType')?.value || 'plantuml';
+      
+      // Determine actual format based on diagram type
+      let actualFormat = format;
+      if (['graphviz'].includes(diagramType)) {
+        actualFormat = 'svg'; // These types only support SVG
+      }
+      
+      // Ensure blob has correct MIME type
+      let downloadBlob = this.currentImageBlob;
+      if (actualFormat === 'svg' && !this.currentImageBlob.type.includes('svg')) {
+        downloadBlob = new Blob([this.currentImageBlob], { type: 'image/svg+xml' });
+      }
+      
+      const url = URL.createObjectURL(downloadBlob);
       const a = document.createElement('a');
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
 
       a.href = url;
-      a.download = `uml-diagram-${timestamp}.${format}`;
+      a.download = `${diagramType}-diagram-${timestamp}.${actualFormat}`;
       a.style.display = 'none';
 
       document.body.appendChild(a);
@@ -888,9 +1055,9 @@ note right of User: Modern, accessible\\nUML diagram service
       // Clean up URL after a short delay
       setTimeout(() => URL.revokeObjectURL(url), 100);
 
-      this.showStatus(`Image downloaded as ${format.toUpperCase()}`, 'success');
-      this.showToast('Download Complete', `Diagram saved as ${format.toUpperCase()} file`, 'success');
-      this.announceToScreenReader(`Diagram downloaded as ${format} file`);
+      this.showStatus(`Diagram downloaded as ${actualFormat.toUpperCase()}`, 'success');
+      this.showToast('Download Complete', `${diagramType.toUpperCase()} diagram saved as ${actualFormat.toUpperCase()}`, 'success');
+      this.announceToScreenReader(`Diagram downloaded as ${actualFormat} file`);
 
     } catch (error) {
       console.error('Download failed:', error);

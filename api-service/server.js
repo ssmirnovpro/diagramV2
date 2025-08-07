@@ -84,8 +84,24 @@ app.get('/metrics', async (req, res) => {
 });
 
 // Detailed status endpoint
-app.get('/api/v1/status', (req, res) => {
+app.get('/api/v1/status', async (req, res) => {
   const metrics = getMetricsSummary();
+  
+  // Check Kroki health
+  let krokiStatus = 'unknown';
+  try {
+    const axios = require('axios');
+    const krokiHealthResponse = await axios.get(`${KROKI_URL}/health`, { timeout: 2000 });
+    if (krokiHealthResponse.status === 200 && krokiHealthResponse.data?.status === 'pass') {
+      krokiStatus = 'healthy';
+    } else {
+      krokiStatus = 'unhealthy';
+    }
+  } catch (error) {
+    krokiStatus = 'unhealthy';
+    logger.warn('Kroki health check failed', { error: error.message });
+  }
+  
   res.json({
     service: 'uml-api-service',
     version: process.env.npm_package_version || '1.0.0',
@@ -102,9 +118,10 @@ app.get('/api/v1/status', (req, res) => {
     dependencies: {
       kroki: {
         url: KROKI_URL,
-        status: 'unknown' // This could be enhanced with actual health checks
+        status: krokiStatus
       }
-    }
+    },
+    kroki_service: krokiStatus // Add field that UI expects
   });
 });
 

@@ -1,6 +1,6 @@
-# UML Images Service
+# Multi-Diagram Generation Service
 
-Web service for generating diagrams from PlantUML code with microservice architecture.
+Web service for generating multiple diagram types with microservice architecture. Supports PlantUML, D2, Graphviz, and more.
 
 ![UI screenshot](docs/UI-screenshot.png)
 
@@ -8,16 +8,21 @@ Web service for generating diagrams from PlantUML code with microservice archite
 
 The system consists of 3 microservices:
 
-1. **API Service** (port 9001) - REST API for diagram generation
-2. **UI Service** (port 9002) - web interface for working with UML code
-3. **Kroki Service** (port 8001) - PlantUML rendering engine
+1. **API Service** (port 9001) - REST API for multi-format diagram generation
+2. **UI Service** (port 9002) - web interface with diagram type selector
+3. **Kroki Service** (port 8001) - multi-diagram rendering engine
+
+## Supported Diagram Types
+
+✅ **PlantUML** - Sequence, class, activity diagrams  
+✅ **Graphviz (DOT)** - Graph layouts and flowcharts
 
 ## Technologies
 
 - Node.js & Express
 - Docker & Docker Compose
 - Vanilla JavaScript (no frameworks)
-- PlantUML via Kroki
+- Multi-diagram support via Kroki
 
 ## Running
 
@@ -53,38 +58,54 @@ npm run clean
 
 ### POST /api/v1/generate
 
-Generate PNG diagram from PlantUML code.
+Generate diagram from any supported diagram type.
 
 **Request:**
 ```json
 {
-  "uml": "@startuml\nAlice -> Bob: Hello\n@enduml"
+  "uml": "diagram_code_here",
+  "diagram_type": "plantuml|d2|graphviz|mermaid|blockdiag",
+  "output_format": "png|svg"
 }
 ```
 
 **Response:**
-- Success: PNG image (binary)
+- Success: Image (PNG/SVG binary)
 - Error: JSON with error description
 
-## PlantUML Code Examples
+**Format Compatibility:**
+- PlantUML: PNG, SVG
+- D2, Graphviz, Mermaid: SVG only
+- BlockDiag: PNG, SVG
 
+## Code Examples
+
+See the [examples folder](examples/) for working examples:
+
+### PlantUML
 ```plantuml
-@startuml
-Alice -> Bob: Hello
-Bob -> Alice: Hi there
-@enduml
+participant "Web Browser" as browser
+participant "Web Server" as server
+browser -> server: HTTP Request
+server --> browser: HTTP Response
 ```
 
-```plantuml
-@startuml
-!theme plain
-class User {
-  +String name
-  +String email
-  +login()
-  +logout()
+### D2
+```d2
+Client: Client Apps {
+  web: Web App
+  mobile: Mobile App
 }
-@enduml
+Gateway: API Gateway
+Client.web -> Gateway: HTTPS
+```
+
+### Graphviz
+```dot
+digraph {
+  Start -> Process -> End;
+  Process -> Error [color=red];
+}
 ```
 
 ## 🛡️ Security

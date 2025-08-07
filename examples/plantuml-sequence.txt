@@ -1,0 +1,24 @@
+@startuml
+title User Authentication Process
+
+actor User
+participant "Web Browser" as Browser
+participant "API Gateway" as API
+participant "Auth Service" as Auth
+database "Database" as DB
+database "Redis Cache" as Redis
+
+User -> Browser: Enter login/password
+Browser -> API: POST /api/login
+API -> Auth: Verify credentials
+Auth -> DB: SELECT user WHERE email=?
+DB -> Auth: User data
+Auth -> Auth: Check password
+Auth -> Redis: Save session
+Redis -> Auth: OK
+Auth -> API: JWT token
+API -> Browser: 200 OK + token
+Browser -> User: Login successful
+
+note over Auth: Token expires in 24 hours
+@enduml

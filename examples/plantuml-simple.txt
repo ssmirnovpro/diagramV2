@@ -1,0 +1,6 @@
+Alice -> Bob: Hello!
+Bob -> Alice: Hi, Alice!
+Alice -> Bob: How are you?
+Bob -> Alice: I'm fine, thanks!
+
+note over Alice, Bob: Simple sequence\ndiagram example

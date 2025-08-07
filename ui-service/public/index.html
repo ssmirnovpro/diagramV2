@@ -56,7 +56,7 @@
         <main class="main-content" id="main-content">
             <section class="editor-section content-section" aria-labelledby="editor-heading">
                 <div class="section-header">
-                    <h2 id="editor-heading" data-icon="📝">PlantUML Code Editor</h2>
+                    <h2 id="editor-heading" data-icon="📝">Diagram Code Editor</h2>
                     <div class="toolbar" role="toolbar" aria-label="Editor tools">
                         <button id="templateBtn" class="btn btn-outline" aria-label="Choose template">
                             <span aria-hidden="true">📋</span>
@@ -75,7 +75,14 @@
                 </div>
                 
                 <div class="editor-container">
-                    <label for="umlCode" class="sr-only">PlantUML code input area</label>
+                    <div class="diagram-type-selector">
+                        <label for="diagramType">Diagram Type:</label>
+                        <select id="diagramType" class="diagram-select">
+                            <option value="plantuml" selected>PlantUML</option>
+                            <option value="graphviz">Graphviz (DOT)</option>
+                        </select>
+                    </div>
+                    <label for="umlCode" class="sr-only">Diagram code input area</label>
                     <textarea 
                         id="umlCode" 
                         placeholder="Enter your PlantUML code here...&#10;&#10;Example:&#10;@startuml&#10;Alice -> Bob: Hello&#10;Bob -> Alice: Hi there&#10;@enduml"

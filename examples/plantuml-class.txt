@@ -1,0 +1,33 @@
+@startuml
+class User {
+  -id: Long
+  -username: String
+  -email: String
+  -password: String
+  +login()
+  +logout()
+  +updateProfile()
+}
+
+class Order {
+  -orderId: Long
+  -userId: Long
+  -totalAmount: Double
+  -status: String
+  +createOrder()
+  +cancelOrder()
+  +getStatus()
+}
+
+class Product {
+  -productId: Long
+  -name: String
+  -price: Double
+  -stock: Integer
+  +updateStock()
+  +getPrice()
+}
+
+User "1" -- "many" Order : places
+Order "many" -- "many" Product : contains
+@enduml

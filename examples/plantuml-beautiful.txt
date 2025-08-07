@@ -1,0 +1,32 @@
+@startuml
+!theme plain
+title Beautiful Sequence Diagram
+
+participant "Web Browser" as browser #lightblue
+participant "Web Server" as server #lightgreen  
+participant "Database" as db #lightyellow
+participant "Cache" as cache #pink
+
+browser -> server: HTTP Request
+activate server
+
+server -> cache: Check Cache
+activate cache
+cache --> server: Cache Miss
+deactivate cache
+
+server -> db: Query Data
+activate db
+db --> server: Return Results
+deactivate db
+
+server -> cache: Store in Cache
+activate cache
+cache --> server: Stored
+deactivate cache
+
+server --> browser: HTTP Response
+deactivate server
+
+note over browser: Display Results
+@enduml
